@@ -245,6 +245,7 @@ fn main() {
             "bigm_eager" => SolverType::BigMEager,
             "bigm_lazy" => SolverType::BigMLazy,
             "maxsat_ddd" => SolverType::MaxSatDddLadderRC2,
+            "maxsat_ddd_ladder" => SolverType::MaxSatDddLadderRC2,
             "maxsat_ddd_abstract" => SolverType::MaxSatDddLadderRC2Abstract,
             "maxsat_ddd_ladder_scl" => SolverType::MaxSatDddLadderScl,
             "maxsat_ddd_ladder_ipamir" => SolverType::MaxSatDddLadderIpamir,
