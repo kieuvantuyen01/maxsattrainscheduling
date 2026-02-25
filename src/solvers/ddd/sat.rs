@@ -1242,6 +1242,75 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
     }
 }
 
+fn current_interval_choice_lit<L: satcoder::Lit>(
+    solver: &mut impl SatInstance<L>,
+    occupations: &TiVec<VisitId, Occ<L>>,
+    cache: &mut HashMap<(VisitId, i32, i32), Bool<L>>,
+    visit_id: VisitId,
+) -> Bool<L> {
+    let occ = &occupations[visit_id];
+    let idx = occ.incumbent_idx;
+    let start_t = occ.delays[idx].1;
+    let next_t = occ.delays[idx + 1].1;
+
+    if let Some(&lit) = cache.get(&(visit_id, start_t, next_t)) {
+        return lit;
+    }
+
+    let in_lit = occ.delays[idx].0;
+    let next_lit = occ.delays[idx + 1].0;
+    let chosen_lit = solver.new_var();
+
+    // chosen_lit <-> (in_lit && !next_lit)
+    solver.add_clause(vec![!chosen_lit, in_lit]);
+    solver.add_clause(vec![!chosen_lit, !next_lit]);
+    solver.add_clause(vec![chosen_lit, !in_lit, next_lit]);
+
+    cache.insert((visit_id, start_t, next_t), chosen_lit);
+    chosen_lit
+}
+
+fn add_sequential_amo<L: satcoder::Lit>(solver: &mut impl SatInstance<L>, lits: &[Bool<L>]) {
+    match lits.len() {
+        0 | 1 => return,
+        2 => {
+            solver.add_clause(vec![!lits[0], !lits[1]]);
+            return;
+        }
+        _ => {}
+    }
+
+    let mut prefix = Vec::with_capacity(lits.len() - 1);
+    for _ in 0..(lits.len() - 1) {
+        prefix.push(solver.new_var());
+    }
+
+    solver.add_clause(vec![!lits[0], prefix[0]]);
+    for i in 1..(lits.len() - 1) {
+        solver.add_clause(vec![!lits[i], prefix[i]]);
+        solver.add_clause(vec![!prefix[i - 1], prefix[i]]);
+        solver.add_clause(vec![!lits[i], !prefix[i - 1]]);
+    }
+    solver.add_clause(vec![!lits[lits.len() - 1], !prefix[prefix.len() - 1]]);
+}
+
+fn add_pairwise_amo<L: satcoder::Lit>(solver: &mut impl SatInstance<L>, lits: &[Bool<L>]) {
+    for i in 0..lits.len() {
+        for j in (i + 1)..lits.len() {
+            solver.add_clause(vec![!lits[i], !lits[j]]);
+        }
+    }
+}
+
+fn add_hybrid_amo<L: satcoder::Lit>(solver: &mut impl SatInstance<L>, lits: &[Bool<L>]) {
+    const PAIRWISE_AMO_MAX_SIZE: usize = 5;
+    if lits.len() <= PAIRWISE_AMO_MAX_SIZE {
+        add_pairwise_amo(solver, lits);
+    } else {
+        add_sequential_amo(solver, lits);
+    }
+}
+
 /// Add the SCL-compressed fixed-precedence constraint for a single time point.
 ///
 /// Given an in-visit `visit_id` on train i at time t with ladder literal `in_var` (= "time >= t"),
