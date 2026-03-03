@@ -87,6 +87,27 @@ struct ResourceCliqueRowKey {
     members: Vec<(VisitId, i32)>,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct MaxSatDddLadderSclSettings {
+    /// Use SCL-style fixed-precedence rows (d_r(t) -> d_q(t + travel)).
+    pub use_scl_fixed_precedence: bool,
+    /// Use interval-graph clique-cover conflict encoding (AMO over cliques).
+    /// If false, fallback to pairwise conflict generation.
+    pub use_interval_graph_conflicts: bool,
+    /// Seed fixed precedence rows from earliest time points (only used when SCL is enabled).
+    pub seed_scl_from_earliest: bool,
+}
+
+impl Default for MaxSatDddLadderSclSettings {
+    fn default() -> Self {
+        Self {
+            use_scl_fixed_precedence: true,
+            use_interval_graph_conflicts: true,
+            seed_scl_from_earliest: true,
+        }
+    }
+}
+
 pub fn solve<L: satcoder::Lit + Copy + std::fmt::Debug>(
     mk_env: impl Fn() -> grb::Env + Send + 'static,
     solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
@@ -95,12 +116,33 @@ pub fn solve<L: satcoder::Lit + Copy + std::fmt::Debug>(
     delay_cost_type: DelayCostType,
     output_stats: impl FnMut(String, serde_json::Value),
 ) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
-    solve_debug(
+    solve_with_settings(
         mk_env,
         solver,
         problem,
         timeout,
         delay_cost_type,
+        MaxSatDddLadderSclSettings::default(),
+        output_stats,
+    )
+}
+
+pub fn solve_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug>(
+    mk_env: impl Fn() -> grb::Env + Send + 'static,
+    solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    problem: &Problem,
+    timeout: f64,
+    delay_cost_type: DelayCostType,
+    settings: MaxSatDddLadderSclSettings,
+    output_stats: impl FnMut(String, serde_json::Value),
+) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
+    solve_debug_with_settings(
+        mk_env,
+        solver,
+        problem,
+        timeout,
+        delay_cost_type,
+        settings,
         |_| {},
         output_stats,
     )
@@ -113,10 +155,32 @@ use crate::{debug::DebugInfo, problem::DelayCostType, solvers::heuristic};
 use super::{costtree::CostTree, SolverError};
 pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug>(
     mk_env: impl Fn() -> grb::Env + Send + 'static,
+    solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    problem: &Problem,
+    timeout: f64,
+    delay_cost_type: DelayCostType,
+    debug_out: impl Fn(DebugInfo),
+    output_stats: impl FnMut(String, serde_json::Value),
+) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
+    solve_debug_with_settings(
+        mk_env,
+        solver,
+        problem,
+        timeout,
+        delay_cost_type,
+        MaxSatDddLadderSclSettings::default(),
+        debug_out,
+        output_stats,
+    )
+}
+
+pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug>(
+    mk_env: impl Fn() -> grb::Env + Send + 'static,
     mut solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
     problem: &Problem,
     timeout: f64,
     delay_cost_type: DelayCostType,
+    settings: MaxSatDddLadderSclSettings,
     debug_out: impl Fn(DebugInfo),
     mut output_stats: impl FnMut(String, serde_json::Value),
 ) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
@@ -197,9 +261,7 @@ pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug>(
 
     // Optional: seed fixed-precedence (travel-time) constraints from the earliest
     // time points to reduce the number of "travel-time conflict" iterations.
-    // Set to false if you want to keep the original lazy behaviour.
-    const SEED_SCL_FROM_EARLIEST: bool = true;
-    if SEED_SCL_FROM_EARLIEST {
+    if settings.use_scl_fixed_precedence && settings.seed_scl_from_earliest {
         for visit_id in visits.keys() {
             let (train_idx, visit_idx) = visits[visit_id];
             if visit_idx + 1 >= problem.trains[train_idx].visits.len() {
@@ -337,20 +399,33 @@ pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug>(
                             time_out: t1_out,
                         }));
 
-                        // Insert the new time point.
+                        // Insert/update precedence row for this time point.
                         let in_var = v1.delays[v1.incumbent_idx].0;
                         let in_t = v1.incumbent_time();
-                        add_fixed_precedence_scl(
-                            &mut solver,
-                            problem,
-                            &visits,
-                            &mut occupations,
-                            &mut new_time_points,
-                            &mut scl_fixed_prec_rows,
-                            visit_id,
-                            in_var,
-                            in_t,
-                        );
+                        if settings.use_scl_fixed_precedence {
+                            add_fixed_precedence_scl(
+                                &mut solver,
+                                problem,
+                                &visits,
+                                &mut occupations,
+                                &mut new_time_points,
+                                &mut scl_fixed_prec_rows,
+                                visit_id,
+                                in_var,
+                                in_t,
+                            );
+                        } else {
+                            add_fixed_precedence_plain(
+                                &mut solver,
+                                problem,
+                                &visits,
+                                &mut occupations,
+                                &mut new_time_points,
+                                visit_id,
+                                in_var,
+                                in_t,
+                            );
+                        }
                         stats.n_travel += 1;
                     }
 
@@ -386,192 +461,352 @@ pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug>(
             // SOLVE ALL SIMPLE PRESEDENCES BEFORE CONFLICTS
             // if !found_conflict {
 
-            #[derive(Clone, Copy)]
-            struct ActiveInterval {
-                visit_id: VisitId,
-                train_idx: usize,
-                start: i32,
-                end: i32,
-            }
-
             let _p = hprof::enter("conflict check");
-            let touched_set: HashSet<VisitId> = touched_intervals.iter().copied().collect();
-            let mut touched_positions: HashMap<VisitId, Vec<usize>> = HashMap::new();
-            for (idx, visit_id) in touched_intervals.iter().copied().enumerate() {
-                touched_positions.entry(visit_id).or_default().push(idx);
-            }
-
-            // Only process resource pairs impacted by touched visits.
-            let mut relevant_resource_pairs: HashSet<(usize, usize)> = HashSet::new();
-            for &visit_id in &touched_intervals {
-                let (train_idx, visit_idx) = visits[visit_id];
-                let resource = problem.trains[train_idx].visits[visit_idx].resource_id;
-                if let Some(conflicting_resources) = conflicts.get(&resource) {
-                    for &other in conflicting_resources {
-                        if resource <= other {
-                            relevant_resource_pairs.insert((resource, other));
-                        } else {
-                            relevant_resource_pairs.insert((other, resource));
-                        }
-                    }
+            if settings.use_interval_graph_conflicts {
+                #[derive(Clone, Copy)]
+                struct ActiveInterval {
+                    visit_id: VisitId,
+                    train_idx: usize,
+                    start: i32,
+                    end: i32,
                 }
-            }
 
-            let mut retain_touched = vec![false; touched_intervals.len()];
-            let mut current_choice_lits: HashMap<(VisitId, i32, i32), Bool<L>> = HashMap::new();
+                let touched_set: HashSet<VisitId> = touched_intervals.iter().copied().collect();
+                let mut touched_positions: HashMap<VisitId, Vec<usize>> = HashMap::new();
+                for (idx, visit_id) in touched_intervals.iter().copied().enumerate() {
+                    touched_positions.entry(visit_id).or_default().push(idx);
+                }
 
-            for (resource_a, resource_b) in relevant_resource_pairs.into_iter() {
-                let mut group_intervals = Vec::new();
-                for &resource in [resource_a, resource_b].iter() {
-                    if resource >= resource_visits.len() {
-                        continue;
-                    }
-                    if resource == resource_b
-                        && resource_a == resource_b
-                        && !group_intervals.is_empty()
-                    {
-                        continue;
-                    }
-                    for &visit_id in &resource_visits[resource] {
-                        let (train_idx, visit_idx) = visits[visit_id];
-                        let start = occupations[visit_id].incumbent_time();
-                        let next_visit: Option<VisitId> =
-                            if visit_idx + 1 < problem.trains[train_idx].visits.len() {
-                                Some((usize::from(visit_id) + 1).into())
+                // Only process resource pairs impacted by touched visits.
+                let mut relevant_resource_pairs: HashSet<(usize, usize)> = HashSet::new();
+                for &visit_id in &touched_intervals {
+                    let (train_idx, visit_idx) = visits[visit_id];
+                    let resource = problem.trains[train_idx].visits[visit_idx].resource_id;
+                    if let Some(conflicting_resources) = conflicts.get(&resource) {
+                        for &other in conflicting_resources {
+                            if resource <= other {
+                                relevant_resource_pairs.insert((resource, other));
                             } else {
-                                None
-                            };
-                        let end = next_visit
-                            .map(|nx| occupations[nx].incumbent_time())
-                            .unwrap_or(
-                                start + problem.trains[train_idx].visits[visit_idx].travel_time,
-                            );
-                        if end <= start {
-                            continue;
-                        }
-                        group_intervals.push(ActiveInterval {
-                            visit_id,
-                            train_idx,
-                            start,
-                            end,
-                        });
-                    }
-                }
-
-                if group_intervals.len() < 2 {
-                    continue;
-                }
-
-                let mut taus: Vec<i32> = group_intervals.iter().map(|it| it.start).collect();
-                taus.sort_unstable();
-                taus.dedup();
-
-                for tau in taus {
-                    let members: Vec<ActiveInterval> = group_intervals
-                        .iter()
-                        .copied()
-                        .filter(|it| it.start <= tau && tau < it.end)
-                        .collect();
-
-                    if members.len() <= 1 {
-                        continue;
-                    }
-                    if !members.iter().any(|m| touched_set.contains(&m.visit_id)) {
-                        continue;
-                    }
-
-                    let mut trains_in_clique: HashSet<usize> = HashSet::new();
-                    for m in &members {
-                        trains_in_clique.insert(m.train_idx);
-                    }
-                    if trains_in_clique.len() <= 1 {
-                        continue;
-                    }
-
-                    let mut member_key: Vec<(VisitId, i32)> =
-                        members.iter().map(|m| (m.visit_id, m.start)).collect();
-                    member_key.sort_unstable_by_key(|(v, t)| (v.0, *t));
-                    let row_key = ResourceCliqueRowKey {
-                        members: member_key,
-                    };
-                    if !added_resource_clique_rows.insert(row_key) {
-                        continue;
-                    }
-
-                    found_resource_conflict = true;
-                    stats.n_conflict += 1;
-
-                    for m in &members {
-                        if let Some(idxs) = touched_positions.get(&m.visit_id) {
-                            for &idx in idxs {
-                                retain_touched[idx] = true;
+                                relevant_resource_pairs.insert((other, resource));
                             }
                         }
                     }
+                }
 
-                    let refine_members: Vec<ActiveInterval> = members
-                        .iter()
-                        .copied()
-                        .filter(|m| touched_set.contains(&m.visit_id))
-                        .collect();
+                let mut retain_touched = vec![false; touched_intervals.len()];
+                let mut current_choice_lits: HashMap<(VisitId, i32, i32), Bool<L>> = HashMap::new();
 
-                    // Monotone refinement, but only for intervals that were actually touched.
-                    // Each touched interval is moved just past its closest blocking end in this clique.
-                    for m in &refine_members {
-                        let Some(target_t) = members
-                            .iter()
-                            .filter(|other| {
-                                other.visit_id != m.visit_id
-                                    && other.train_idx != m.train_idx
-                                    && other.end > m.start
-                            })
-                            .map(|other| other.end)
-                            .min()
-                        else {
+                for (resource_a, resource_b) in relevant_resource_pairs.into_iter() {
+                    let mut group_intervals = Vec::new();
+                    for &resource in [resource_a, resource_b].iter() {
+                        if resource >= resource_visits.len() {
                             continue;
+                        }
+                        if resource == resource_b
+                            && resource_a == resource_b
+                            && !group_intervals.is_empty()
+                        {
+                            continue;
+                        }
+                        for &visit_id in &resource_visits[resource] {
+                            let (train_idx, visit_idx) = visits[visit_id];
+                            let start = occupations[visit_id].incumbent_time();
+                            let next_visit: Option<VisitId> =
+                                if visit_idx + 1 < problem.trains[train_idx].visits.len() {
+                                    Some((usize::from(visit_id) + 1).into())
+                                } else {
+                                    None
+                                };
+                            let end = next_visit
+                                .map(|nx| occupations[nx].incumbent_time())
+                                .unwrap_or(
+                                    start + problem.trains[train_idx].visits[visit_idx].travel_time,
+                                );
+                            if end <= start {
+                                continue;
+                            }
+                            group_intervals.push(ActiveInterval {
+                                visit_id,
+                                train_idx,
+                                start,
+                                end,
+                            });
+                        }
+                    }
+
+                    if group_intervals.len() < 2 {
+                        continue;
+                    }
+
+                    let mut taus: Vec<i32> = group_intervals.iter().map(|it| it.start).collect();
+                    taus.sort_unstable();
+                    taus.dedup();
+
+                    for tau in taus {
+                        let members: Vec<ActiveInterval> = group_intervals
+                            .iter()
+                            .copied()
+                            .filter(|it| it.start <= tau && tau < it.end)
+                            .collect();
+
+                        if members.len() <= 1 {
+                            continue;
+                        }
+                        if !members.iter().any(|m| touched_set.contains(&m.visit_id)) {
+                            continue;
+                        }
+
+                        let mut trains_in_clique: HashSet<usize> = HashSet::new();
+                        for m in &members {
+                            trains_in_clique.insert(m.train_idx);
+                        }
+                        if trains_in_clique.len() <= 1 {
+                            continue;
+                        }
+
+                        let mut member_key: Vec<(VisitId, i32)> =
+                            members.iter().map(|m| (m.visit_id, m.start)).collect();
+                        member_key.sort_unstable_by_key(|(v, t)| (v.0, *t));
+                        let row_key = ResourceCliqueRowKey {
+                            members: member_key,
+                        };
+                        if !added_resource_clique_rows.insert(row_key) {
+                            continue;
+                        }
+
+                        found_resource_conflict = true;
+                        stats.n_conflict += 1;
+
+                        for m in &members {
+                            if let Some(idxs) = touched_positions.get(&m.visit_id) {
+                                for &idx in idxs {
+                                    retain_touched[idx] = true;
+                                }
+                            }
+                        }
+
+                        let refine_members: Vec<ActiveInterval> = members
+                            .iter()
+                            .copied()
+                            .filter(|m| touched_set.contains(&m.visit_id))
+                            .collect();
+
+                        // Monotone refinement, but only for intervals that were actually touched.
+                        // Each touched interval is moved just past its closest blocking end in this clique.
+                        for m in &refine_members {
+                            let Some(target_t) = members
+                                .iter()
+                                .filter(|other| {
+                                    other.visit_id != m.visit_id
+                                        && other.train_idx != m.train_idx
+                                        && other.end > m.start
+                                })
+                                .map(|other| other.end)
+                                .min()
+                            else {
+                                continue;
+                            };
+
+                            let (delay_after, is_new) =
+                                occupations[m.visit_id].time_point(&mut solver, target_t);
+                            if is_new {
+                                new_time_points.push((m.visit_id, delay_after, target_t));
+                            }
+                            if settings.use_scl_fixed_precedence {
+                                add_fixed_precedence_scl(
+                                    &mut solver,
+                                    problem,
+                                    &visits,
+                                    &mut occupations,
+                                    &mut new_time_points,
+                                    &mut scl_fixed_prec_rows,
+                                    m.visit_id,
+                                    delay_after,
+                                    target_t,
+                                );
+                            } else {
+                                add_fixed_precedence_plain(
+                                    &mut solver,
+                                    problem,
+                                    &visits,
+                                    &mut occupations,
+                                    &mut new_time_points,
+                                    m.visit_id,
+                                    delay_after,
+                                    target_t,
+                                );
+                            }
+                        }
+
+                        let mut clique_lits = Vec::with_capacity(members.len());
+                        for m in &members {
+                            let lit = current_interval_choice_lit(
+                                &mut solver,
+                                &occupations,
+                                &mut current_choice_lits,
+                                m.visit_id,
+                            );
+                            clique_lits.push(lit);
+                        }
+
+                        add_hybrid_amo(&mut solver, &clique_lits);
+                        n_conflict_constraints += 1;
+                    }
+                }
+
+                let mut new_touched = Vec::new();
+                for (idx, visit_id) in touched_intervals.into_iter().enumerate() {
+                    if retain_touched[idx] {
+                        new_touched.push(visit_id);
+                    }
+                }
+                touched_intervals = new_touched;
+            } else {
+                let mut deconflicted_train_pairs: HashSet<(usize, usize)> = HashSet::new();
+                touched_intervals.retain(|visit_id| {
+                    let visit_id = *visit_id;
+                    let (train_idx, visit_idx) = visits[visit_id];
+                    let next_visit: Option<VisitId> =
+                        if visit_idx + 1 < problem.trains[train_idx].visits.len() {
+                            Some((usize::from(visit_id) + 1).into())
+                        } else {
+                            None
                         };
 
-                        let (delay_after, is_new) =
-                            occupations[m.visit_id].time_point(&mut solver, target_t);
-                        if is_new {
-                            new_time_points.push((m.visit_id, delay_after, target_t));
+                    let t1_in = occupations[visit_id].incumbent_time();
+                    let visit = problem.trains[train_idx].visits[visit_idx];
+                    let mut retain = false;
+
+                    if let Some(conflicting_resources) = conflicts.get(&visit.resource_id) {
+                        for other_resource in conflicting_resources.iter().copied() {
+                            let t1_out = next_visit
+                                .map(|nx| occupations[nx].incumbent_time())
+                                .unwrap_or(t1_in + visit.travel_time);
+
+                            for other_visit in resource_visits[other_resource].iter().copied() {
+                                if usize::from(visit_id) == usize::from(other_visit) {
+                                    continue;
+                                }
+
+                                let v2 = &occupations[other_visit];
+                                let t2_in = v2.incumbent_time();
+                                let (other_train_idx, other_visit_idx) = visits[other_visit];
+
+                                if other_train_idx == train_idx {
+                                    continue;
+                                }
+
+                                let other_next_visit: Option<VisitId> = if other_visit_idx + 1
+                                    < problem.trains[other_train_idx].visits.len()
+                                {
+                                    Some((usize::from(other_visit) + 1).into())
+                                } else {
+                                    None
+                                };
+
+                                let t2_out = other_next_visit
+                                    .map(|v| occupations[v].incumbent_time())
+                                    .unwrap_or_else(|| {
+                                        let other_v =
+                                            problem.trains[other_train_idx].visits[other_visit_idx];
+                                        t2_in + other_v.travel_time
+                                    });
+
+                                if t1_out <= t2_in || t2_out <= t1_in {
+                                    continue;
+                                }
+
+                                if !deconflicted_train_pairs.insert((train_idx, other_train_idx))
+                                    || !deconflicted_train_pairs
+                                        .insert((other_train_idx, train_idx))
+                                {
+                                    retain = true;
+                                    continue;
+                                }
+
+                                found_resource_conflict = true;
+                                stats.n_conflict += 1;
+
+                                let (delay_t2, t2_is_new) =
+                                    occupations[other_visit].time_point(&mut solver, t1_out);
+                                let (delay_t1, t1_is_new) =
+                                    occupations[visit_id].time_point(&mut solver, t2_out);
+
+                                if t1_is_new {
+                                    new_time_points.push((visit_id, delay_t1, t2_out));
+                                    if settings.use_scl_fixed_precedence {
+                                        add_fixed_precedence_scl(
+                                            &mut solver,
+                                            problem,
+                                            &visits,
+                                            &mut occupations,
+                                            &mut new_time_points,
+                                            &mut scl_fixed_prec_rows,
+                                            visit_id,
+                                            delay_t1,
+                                            t2_out,
+                                        );
+                                    } else {
+                                        add_fixed_precedence_plain(
+                                            &mut solver,
+                                            problem,
+                                            &visits,
+                                            &mut occupations,
+                                            &mut new_time_points,
+                                            visit_id,
+                                            delay_t1,
+                                            t2_out,
+                                        );
+                                    }
+                                }
+
+                                if t2_is_new {
+                                    new_time_points.push((other_visit, delay_t2, t1_out));
+                                    if settings.use_scl_fixed_precedence {
+                                        add_fixed_precedence_scl(
+                                            &mut solver,
+                                            problem,
+                                            &visits,
+                                            &mut occupations,
+                                            &mut new_time_points,
+                                            &mut scl_fixed_prec_rows,
+                                            other_visit,
+                                            delay_t2,
+                                            t1_out,
+                                        );
+                                    } else {
+                                        add_fixed_precedence_plain(
+                                            &mut solver,
+                                            problem,
+                                            &visits,
+                                            &mut occupations,
+                                            &mut new_time_points,
+                                            other_visit,
+                                            delay_t2,
+                                            t1_out,
+                                        );
+                                    }
+                                }
+
+                                let t1_out_lit = next_visit
+                                    .map(|v| occupations[v].delays[occupations[v].incumbent_idx].0)
+                                    .unwrap_or_else(|| true.into());
+                                let t2_out_lit = other_next_visit
+                                    .map(|v| occupations[v].delays[occupations[v].incumbent_idx].0)
+                                    .unwrap_or_else(|| true.into());
+
+                                n_conflict_constraints += 1;
+                                SatInstance::add_clause(
+                                    &mut solver,
+                                    vec![!t1_out_lit, !t2_out_lit, delay_t1, delay_t2],
+                                );
+                                retain = true;
+                            }
                         }
-                        add_fixed_precedence_scl(
-                            &mut solver,
-                            problem,
-                            &visits,
-                            &mut occupations,
-                            &mut new_time_points,
-                            &mut scl_fixed_prec_rows,
-                            m.visit_id,
-                            delay_after,
-                            target_t,
-                        );
                     }
-
-                    let mut clique_lits = Vec::with_capacity(members.len());
-                    for m in &members {
-                        let lit = current_interval_choice_lit(
-                            &mut solver,
-                            &occupations,
-                            &mut current_choice_lits,
-                            m.visit_id,
-                        );
-                        clique_lits.push(lit);
-                    }
-
-                    add_hybrid_amo(&mut solver, &clique_lits);
-                    n_conflict_constraints += 1;
-                }
+                    retain
+                });
             }
-
-            let mut new_touched = Vec::new();
-            for (idx, visit_id) in touched_intervals.into_iter().enumerate() {
-                if retain_touched[idx] {
-                    new_touched.push(visit_id);
-                }
-            }
-            touched_intervals = new_touched;
 
             // touched_intervals.clear();
             // assert!(touched_intervals.is_empty());
@@ -1378,6 +1613,36 @@ fn add_hybrid_amo<L: satcoder::Lit>(solver: &mut impl SatInstance<L>, lits: &[Bo
         add_pairwise_amo(solver, lits);
     } else {
         add_sequential_amo(solver, lits);
+    }
+}
+
+/// Add plain fixed precedence row for a single chosen in-time point:
+/// d_r(t) -> d_q(t + travel).
+///
+/// This is the non-SCL fallback used when SCL mode is disabled.
+fn add_fixed_precedence_plain<L: satcoder::Lit>(
+    solver: &mut impl SatInstance<L>,
+    problem: &Problem,
+    visits: &TiVec<VisitId, (usize, usize)>,
+    occupations: &mut TiVec<VisitId, Occ<L>>,
+    new_time_points: &mut Vec<(VisitId, Bool<L>, i32)>,
+    visit_id: VisitId,
+    in_var: Bool<L>,
+    in_t: i32,
+) {
+    let (train_idx, visit_idx) = visits[visit_id];
+    if visit_idx + 1 >= problem.trains[train_idx].visits.len() {
+        return;
+    }
+
+    let travel = problem.trains[train_idx].visits[visit_idx].travel_time;
+    let next_visit: VisitId = (usize::from(visit_id) + 1).into();
+    let req_t = in_t + travel;
+
+    let (req_var, is_new) = occupations[next_visit].time_point(solver, req_t);
+    solver.add_clause(vec![!in_var, req_var]);
+    if is_new {
+        new_time_points.push((next_visit, req_var, req_t));
     }
 }
 

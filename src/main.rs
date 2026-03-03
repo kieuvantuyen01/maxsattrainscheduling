@@ -47,6 +47,18 @@ struct Opt {
 
     #[structopt(long)]
     json_output: Option<String>,
+
+    /// Toggle SCL fixed-precedence rows in `maxsat_ddd_ladder_scl` (true/false).
+    #[structopt(long)]
+    maxsatddd_ladder_scl_use_scl: Option<bool>,
+
+    /// Toggle interval-graph conflict encoding in `maxsat_ddd_ladder_scl` (true/false).
+    #[structopt(long)]
+    maxsatddd_ladder_scl_use_interval_graph: Option<bool>,
+
+    /// Alias of `maxsatddd_ladder_scl_use_interval_graph`.
+    #[structopt(long)]
+    maxsatddd_ladder_scl_use_interval_tree: Option<bool>,
 }
 
 fn parse_delay_cost_type(value: &str) -> Option<DelayCostType> {
@@ -219,7 +231,7 @@ enum SolverType {
     MaxSatDddPairwiseCustomRc2NoProp,
 }
 
-const TIMEOUT: f64 = 120.0;
+const TIMEOUT: f64 = 600.0;
 
 fn mk_env() -> grb::Env {
     let mut env = grb::Env::new("").unwrap();
@@ -291,6 +303,19 @@ fn main() {
         .other_objective
         .as_deref()
         .map(parse_delay_cost_type_or_panic);
+
+    let maxsatddd_ladder_scl_settings = maxsatddd_ladder_scl::MaxSatDddLadderSclSettings {
+        use_scl_fixed_precedence: opt.maxsatddd_ladder_scl_use_scl.unwrap_or(true),
+        use_interval_graph_conflicts: opt
+            .maxsatddd_ladder_scl_use_interval_tree
+            .or(opt.maxsatddd_ladder_scl_use_interval_graph)
+            .unwrap_or(true),
+        seed_scl_from_earliest: true,
+    };
+    println!(
+        "MaxSatDddLadderScl settings {:?}",
+        maxsatddd_ladder_scl_settings
+    );
 
     let perf_out = RefCell::new(String::new());
 
@@ -525,12 +550,13 @@ fn main() {
                     },
                 )
                 .map(|(v, _)| v),
-                SolverType::MaxSatDddLadderScl => maxsatddd_ladder_scl::solve(
+                SolverType::MaxSatDddLadderScl => maxsatddd_ladder_scl::solve_with_settings(
                     &mk_env,
                     satcoder::solvers::minisat::Solver::new(),
                     &p.problem,
                     TIMEOUT,
                     delay_cost_type,
+                    maxsatddd_ladder_scl_settings,
                     |k, v| {
                         solve_data.insert(k, v);
                     },

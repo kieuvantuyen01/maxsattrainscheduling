@@ -184,11 +184,7 @@ pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug>(
     loop {
         if start_time.elapsed().as_secs_f64() > timeout {
             let ub = best_heur.map(|(c, _)| c).unwrap_or(i32::MAX);
-            println!(
-                "TIMEOUT LB={} UB={}",
-                total_cost,
-                ub
-            );
+            println!("TIMEOUT LB={} UB={}", total_cost, ub);
 
             do_output_stats(
                 &mut output_stats,
@@ -199,7 +195,7 @@ pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug>(
                 start_time,
                 solver_time,
                 total_cost,
-                ub
+                ub,
             );
             return Err(SolverError::Timeout);
         }
@@ -230,9 +226,9 @@ pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug>(
                             start_time,
                             solver_time,
                             total_cost,
-                            ub_cost
+                            ub_cost,
                         );
-        
+
                         return Ok((ub_sol, stats));
                     }
 
@@ -603,7 +599,7 @@ pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug>(
                     start_time,
                     solver_time,
                     total_cost,
-                    total_cost
+                    total_cost,
                 );
 
                 println!("VARSCLAUSES {:?}", solver);
@@ -1082,7 +1078,7 @@ pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug>(
                     start_time,
                     solver_time,
                     total_cost,
-                    total_cost
+                    total_cost,
                 );
 
                 return Ok((best_heur.unwrap().1, stats));
@@ -1114,7 +1110,7 @@ pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug>(
     }
 }
 
-fn do_output_stats<L:satcoder::Lit>(
+fn do_output_stats<L: satcoder::Lit>(
     output_stats: &mut impl FnMut(String, serde_json::Value),
     iteration: usize,
     iteration_types: &BTreeMap<IterationType, usize>,
@@ -1191,7 +1187,6 @@ fn do_output_stats<L:satcoder::Lit>(
     );
     output_stats("lb".to_string(), lb.into());
     output_stats("ub".to_string(), ub.into());
-
 }
 
 fn extract_solution<L: satcoder::Lit>(

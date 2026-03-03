@@ -217,7 +217,6 @@ pub fn solve_debug(
                     return Ok((ub_sol, stats));
                 }
 
-
                 if ub_cost < best_heur.as_ref().map(|(c, _)| *c).unwrap_or(i32::MAX) {
                     best_heur = Some((ub_cost, ub_sol));
                 }
@@ -652,7 +651,6 @@ pub fn solve_debug(
 
         assert!(found_resource_conflict || found_travel_time_conflict);
 
-
         for (visit, new_timepoint_var, new_t) in new_time_points.drain(..) {
             n_timepoints += 1;
             let (train_idx, visit_idx) = visits[visit];
@@ -786,7 +784,6 @@ pub fn solve_debug(
             println!("TERMINATE HEURISTIC");
             return Ok((best_heur.unwrap().1, stats));
         }
-
 
         let model_value = |l: isize| {
             if l > 0 {
