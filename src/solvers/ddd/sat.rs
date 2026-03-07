@@ -9,9 +9,8 @@ use crate::{
     problem::{DelayCostType, Problem},
     solvers::heuristic,
 };
-use satcoder::prelude::Binary;
 use satcoder::{
-    constraints::BooleanFormulas, prelude::SymbolicModel, Bool, SatInstance, SatSolverWithCore,
+    prelude::SymbolicModel, Bool, SatInstance, SatSolverWithCore,
 };
 use typed_index_collections::TiVec;
 
@@ -140,100 +139,11 @@ fn rebuild_nsc_encoder<L: satcoder::Lit + Copy>(
     }
 }
 
-fn build_weighted_binary_sum<L: satcoder::Lit + Copy + 'static>(
-    solver: &mut impl SatInstance<L>,
-    terms: &[(Bool<L>, usize)],
-) -> Binary<L> {
-    let mut bits: Vec<(usize, Bool<L>)> = Vec::new();
-
-    for &(lit, weight) in terms {
-        if weight == 0 || lit == false.into() {
-            continue;
-        }
-        let mut w = weight;
-        let mut bit_idx = 0usize;
-        while w > 0 {
-            if (w & 1usize) == 1usize {
-                bits.push((bit_idx, lit));
-            }
-            bit_idx += 1;
-            w >>= 1;
-        }
-    }
-
-    if bits.is_empty() {
-        Binary::constant(0)
-    } else {
-        Binary::add_bits(solver, bits)
-    }
-}
-
-fn binary_lt_literal_bits<L: satcoder::Lit + Copy + 'static>(
-    solver: &mut impl SatInstance<L>,
-    a: &[Bool<L>],
-    b: &[Bool<L>],
-) -> Bool<L> {
-    assert!(a.len() == b.len());
-    let n = a.len();
-
-    if n == 1 {
-        return solver.and_literal(vec![!a[0], b[0]]);
-    }
-
-    let rest = binary_lt_literal_bits(solver, &a[1..], &b[1..]);
-    let lt_lit = solver.new_var();
-
-    solver.add_clause(vec![!lt_lit, b[0], rest]);
-    solver.add_clause(vec![!lt_lit, !a[0], rest]);
-    solver.add_clause(vec![!lt_lit, !a[0], b[0]]);
-
-    lt_lit
-}
-
-fn binary_lt_literal<L: satcoder::Lit + Copy + 'static>(
-    solver: &mut impl SatInstance<L>,
-    a: &Binary<L>,
-    b: &Binary<L>,
-) -> Bool<L> {
-    use std::iter::repeat;
-
-    let len = a.clone().into_list().len().max(b.clone().into_list().len());
-    let mut a_bits = a
-        .clone()
-        .into_list()
-        .into_iter()
-        .chain(repeat(false.into()))
-        .take(len)
-        .collect::<Vec<_>>();
-    a_bits.reverse();
-
-    let mut b_bits = b
-        .clone()
-        .into_list()
-        .into_iter()
-        .chain(repeat(false.into()))
-        .take(len)
-        .collect::<Vec<_>>();
-    b_bits.reverse();
-
-    binary_lt_literal_bits(solver, &a_bits, &b_bits)
-}
-
-fn cont_budget_assumption_lit<L: satcoder::Lit + Copy + 'static>(
-    solver: &mut impl SatInstance<L>,
-    sum_expr: &Binary<L>,
-    rhs: i32,
-) -> Bool<L> {
-    let strict_upper = rhs.saturating_add(1) as usize;
-    let rhs_bin = Binary::constant(strict_upper);
-    binary_lt_literal(solver, sum_expr, &rhs_bin)
-}
-
 /// SAT-only version of the DDD Ladder solver.
 ///
 /// Idea:
 /// - keep the exact same DDD refinement (time-point generation + conflict clauses)
-/// - replace MaxSAT objective by a SAT cardinality constraint on unit-cost ladder vars
+/// - replace MaxSAT objective by a SAT PB budget over objective literals
 /// - solve repeatedly by tightening an upper bound (UB) on total cost
 pub fn solve<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
     mk_env: impl Fn() -> grb::Env + Send + 'static,
@@ -485,12 +395,10 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
     let mut nsc_current_max_k = 0usize;
     // Objective terms (lit, weight). Kept so NSC can be rebuilt when UB requires a larger K.
     let mut nsc_terms: Vec<(Bool<L>, usize)> = Vec::new();
-    let use_cont_binary_budget = matches!(delay_cost_type, DelayCostType::Continuous);
-    let mut cont_obj_terms_len: usize = 0;
-    let mut cont_obj_sum: Option<Binary<L>> = None;
-    let mut cont_bound_lits: HashMap<i32, Bool<L>> = HashMap::new();
+    // For Continuous objective we keep the same fixed-K decision-query rhythm as before:
+    // once a K is selected, refine conflicts until that query becomes SAT-feasible or UNSAT.
+    let use_cont_fixed_query = matches!(delay_cost_type, DelayCostType::Continuous);
     let mut cont_active_query_bound: Option<i32> = None;
-    let mut cont_obj_max_sum: usize = 0;
 
     // Rows already added for interval-graph resource conflict encoding.
     let mut added_resource_clique_rows: HashSet<ResourceCliqueRowKey> = HashSet::new();
@@ -889,7 +797,7 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                             .map(|b| b.min(candidate_ub))
                             .unwrap_or(candidate_ub),
                     );
-                    if use_cont_binary_budget {
+                    if use_cont_fixed_query {
                         // For continuous objective, finish current decision query (cost <= K)
                         // and pick a new K only in the next objective iteration.
                         cont_active_query_bound = None;
@@ -996,7 +904,6 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                     );
                     for (weight, cost_var) in emitted_terms {
                         nsc_terms.push((cost_var, weight));
-                        cont_obj_max_sum = cont_obj_max_sum.saturating_add(weight);
                         if nsc_current_max_k > 0 {
                             nsc_enc.add_variable(&mut solver, cost_var, weight, nsc_current_max_k);
                         }
@@ -1029,7 +936,7 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                     return Err(SolverError::NoSolution);
                 }
 
-                let target_ub = if use_cont_binary_budget {
+                let target_ub = if use_cont_fixed_query {
                     // Continuous objective: decision SAT with a fixed K for the current
                     // refinement cycle. We only pick a new K when the current query is decided
                     // (SAT-feasible or UNSAT).
@@ -1047,77 +954,32 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                     }
                 };
 
-                if use_cont_binary_budget {
-                    let need_rebuild_sum = nsc_terms.len() > cont_obj_terms_len;
-                    if need_rebuild_sum {
-                        let delta_terms = &nsc_terms[cont_obj_terms_len..];
-                        let delta_sum = build_weighted_binary_sum(&mut solver, delta_terms);
-                        cont_obj_sum = Some(if let Some(prev_sum) = cont_obj_sum.take() {
-                            prev_sum.add(&mut solver, &delta_sum)
-                        } else {
-                            delta_sum
-                        });
-                        cont_obj_terms_len = nsc_terms.len();
-                        // Budget literals are tied to the current sum expression.
-                        // Any new objective terms require recreating these literals.
-                        cont_bound_lits.clear();
-                    }
+                let ub_usize = target_ub as usize;
+                let required_k = ub_usize.saturating_add(1);
 
-                    if target_ub < 0 {
-                        bound_assumption = Some(false.into());
-                        bound_used = Some(target_ub);
-                    } else {
-                        let strict_upper = target_ub.saturating_add(1) as usize;
+                if required_k > nsc_current_max_k {
+                    rebuild_nsc_encoder(&mut solver, &mut nsc_enc, &nsc_terms, required_k);
+                    nsc_current_max_k = required_k;
+                }
 
-                        if strict_upper > cont_obj_max_sum {
-                            // Tautological bound (sum cannot reach target_ub + 1).
-                            // Do not use it to raise LB on UNSAT.
-                            bound_used = None;
-                        } else if let Some(sum_expr) = cont_obj_sum.as_ref() {
-                            let bound_lit = if let Some(&lit) = cont_bound_lits.get(&target_ub) {
-                                lit
-                            } else {
-                                let lit =
-                                    cont_budget_assumption_lit(&mut solver, sum_expr, target_ub);
-                                cont_bound_lits.insert(target_ub, lit);
-                                lit
-                            };
+                // Enforce weighted objective sum <= target_ub.
+                // This means the encoded sum cannot reach target_ub + 1.
+                if let Some(reached_var) = nsc_enc.has_sum_reached(required_k) {
+                    let bound_lit = !reached_var;
+                    bound_used = Some(target_ub);
+                    match mode {
+                        SatBoundMode::AddClauses => {
+                            SatInstance::add_clause(&mut solver, vec![bound_lit]);
+                        }
+                        SatBoundMode::Assumptions => {
                             bound_assumption = Some(bound_lit);
-                            bound_used = Some(target_ub);
-                        } else {
-                            // No objective terms yet -> sum is always 0.
-                            // Bound is tautological for target_ub >= 0.
-                            bound_used = None;
                         }
                     }
                 } else {
-                    let ub_usize = target_ub as usize;
-                    let required_k = ub_usize.saturating_add(1);
-
-                    if required_k > nsc_current_max_k {
-                        rebuild_nsc_encoder(&mut solver, &mut nsc_enc, &nsc_terms, required_k);
-                        nsc_current_max_k = required_k;
-                    }
-
-                    // Enforce sum(budget_units) <= target_ub
-                    // This means the sum cannot reach target_ub + 1
-                    if let Some(reached_var) = nsc_enc.has_sum_reached(required_k) {
-                        let bound_lit = !reached_var;
-                        bound_used = Some(target_ub);
-                        match mode {
-                            SatBoundMode::AddClauses => {
-                                SatInstance::add_clause(&mut solver, vec![bound_lit]);
-                            }
-                            SatBoundMode::Assumptions => {
-                                bound_assumption = Some(bound_lit);
-                            }
-                        }
-                    } else {
-                        // No literal means the weighted sum cannot reach (target_ub + 1).
-                        // In this case, the UB constraint is tautological and must NOT be used
-                        // to raise LB on UNSAT.
-                        bound_used = None;
-                    }
+                    // No literal means the weighted sum cannot reach (target_ub + 1).
+                    // In this case, the UB constraint is tautological and must NOT be used
+                    // to raise LB on UNSAT.
+                    bound_used = None;
                 }
             }
         }
@@ -1207,7 +1069,7 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
 
                 if let Some(bound) = bound_used {
                     lower_bound = bound + 1;
-                    if use_cont_binary_budget {
+                    if use_cont_fixed_query {
                         // Current decision query (cost <= K) proved UNSAT.
                         // Move to the next K in the following objective iteration.
                         cont_active_query_bound = None;
