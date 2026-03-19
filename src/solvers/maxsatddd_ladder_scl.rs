@@ -12,7 +12,9 @@ use crate::{
     trim_core,
 };
 use satcoder::{
-    constraints::Totalizer, prelude::SymbolicModel, Bool, SatInstance, SatSolverWithCore,
+    constraints::{BooleanFormulas, Totalizer},
+    prelude::{Binary, SymbolicModel},
+    Bool, SatInstance, SatSolverWithCore,
 };
 use typed_index_collections::TiVec;
 
@@ -108,7 +110,238 @@ impl Default for MaxSatDddLadderSclSettings {
     }
 }
 
-pub fn solve<L: satcoder::Lit + Copy + std::fmt::Debug>(
+enum Soft<L: satcoder::Lit> {
+    Primary,
+    Totalizer(Totalizer<L>, usize),
+}
+
+fn bits_needed(max_value: usize) -> usize {
+    if max_value == 0 {
+        1
+    } else {
+        (usize::BITS as usize) - (max_value.leading_zeros() as usize)
+    }
+}
+
+fn build_binary_register<L: satcoder::Lit + Copy + 'static>(reg_bits: &[Bool<L>]) -> Binary<L> {
+    Binary::from_list(reg_bits.iter().copied())
+}
+
+fn build_weighted_binary_term<L: satcoder::Lit + Copy + 'static>(
+    lit: Bool<L>,
+    weight: usize,
+) -> Binary<L> {
+    if weight == 0 || lit == false.into() {
+        return Binary::constant(0);
+    }
+
+    let mut bits = Vec::new();
+    let mut remaining = weight;
+    while remaining > 0 {
+        bits.push(if (remaining & 1usize) == 1usize {
+            lit
+        } else {
+            false.into()
+        });
+        remaining >>= 1;
+    }
+
+    Binary::from_list(bits)
+}
+
+fn subtract_binary<L: satcoder::Lit + Copy + 'static>(
+    solver: &mut impl SatInstance<L>,
+    a: &Binary<L>,
+    b: &Binary<L>,
+) -> (Binary<L>, Bool<L>) {
+    use std::iter::repeat;
+
+    let len = a.clone().into_list().len().max(b.clone().into_list().len());
+    let a_bits = a
+        .clone()
+        .into_list()
+        .into_iter()
+        .chain(repeat(false.into()))
+        .take(len)
+        .collect::<Vec<_>>();
+    let b_bits = b
+        .clone()
+        .into_list()
+        .into_iter()
+        .chain(repeat(false.into()))
+        .take(len)
+        .collect::<Vec<_>>();
+
+    let mut diff_bits = Vec::with_capacity(len);
+    let mut borrow = false.into();
+
+    for idx in 0..len {
+        let ai = a_bits[idx];
+        let bi = b_bits[idx];
+
+        let diff = solver.xor_literal([ai, bi, borrow]);
+        let bi_or_borrow = solver.or_literal([bi, borrow]);
+        let borrow_from_subtrahend = solver.and_literal([!ai, bi_or_borrow]);
+        let borrow_from_borrow = solver.and_literal([bi, borrow]);
+        let next_borrow = solver.or_literal([borrow_from_subtrahend, borrow_from_borrow]);
+
+        diff_bits.push(diff);
+        borrow = next_borrow;
+    }
+
+    (Binary::from_list(diff_bits), borrow)
+}
+
+fn binary_le_literal_bits<L: satcoder::Lit + Copy>(
+    solver: &mut impl SatInstance<L>,
+    a: &[Bool<L>], // MSB -> LSB
+    b: &[Bool<L>], // MSB -> LSB
+) -> Bool<L> {
+    assert_eq!(a.len(), b.len());
+
+    if a.is_empty() {
+        return true.into();
+    }
+
+    if a.len() == 1 {
+        let le_lit = solver.new_var();
+        solver.add_clause(vec![!le_lit, !a[0], b[0]]);
+        return le_lit;
+    }
+
+    let rest = binary_le_literal_bits(solver, &a[1..], &b[1..]);
+    let le_lit = solver.new_var();
+
+    solver.add_clause(vec![!le_lit, !a[0], b[0]]);
+    solver.add_clause(vec![!le_lit, a[0], b[0], rest]);
+    solver.add_clause(vec![!le_lit, !a[0], !b[0], rest]);
+
+    le_lit
+}
+
+fn assert_binary_le<L: satcoder::Lit + Copy + 'static>(
+    solver: &mut impl SatInstance<L>,
+    a: &Binary<L>,
+    b: &Binary<L>,
+) {
+    use std::iter::repeat;
+
+    let len = a.clone().into_list().len().max(b.clone().into_list().len());
+    if len == 0 {
+        return;
+    }
+
+    let mut a_bits = a
+        .clone()
+        .into_list()
+        .into_iter()
+        .chain(repeat(false.into()))
+        .take(len)
+        .collect::<Vec<_>>();
+    a_bits.reverse();
+
+    let mut b_bits = b
+        .clone()
+        .into_list()
+        .into_iter()
+        .chain(repeat(false.into()))
+        .take(len)
+        .collect::<Vec<_>>();
+    b_bits.reverse();
+
+    let le = binary_le_literal_bits(solver, &a_bits, &b_bits);
+    solver.add_clause(vec![le]);
+}
+
+struct BinaryObjective<L: satcoder::Lit> {
+    reg_bits: Vec<Bool<L>>,
+    remaining: Option<Binary<L>>,
+    hard_upper_bound: Option<usize>,
+}
+
+impl<L: satcoder::Lit + Copy + 'static> BinaryObjective<L> {
+    fn new() -> Self {
+        Self {
+            reg_bits: Vec::new(),
+            remaining: None,
+            hard_upper_bound: None,
+        }
+    }
+
+    fn add_term(&mut self, solver: &mut impl SatInstance<L>, lit: Bool<L>, weight: usize) {
+        if weight == 0 || lit == false.into() {
+            return;
+        }
+
+        let term = build_weighted_binary_term(lit, weight);
+        let current_remaining = self
+            .remaining
+            .clone()
+            .expect("binary objective requires an upper bound before adding terms");
+        let (next_remaining, underflow) = subtract_binary(solver, &current_remaining, &term);
+        solver.add_clause(vec![!underflow]);
+        self.remaining = Some(next_remaining);
+    }
+
+    fn ensure_upper_bound(
+        &mut self,
+        solver: &mut impl SatInstance<L>,
+        soft_constraints: &mut HashMap<Bool<L>, (Soft<L>, usize, usize)>,
+        upper_bound: usize,
+    ) {
+        let need_bits = bits_needed(upper_bound);
+
+        if need_bits > self.reg_bits.len() {
+            assert!(
+                self.remaining.is_none(),
+                "binary register width cannot grow after link constraints have been emitted"
+            );
+
+            while self.reg_bits.len() < need_bits {
+                let bit = self.reg_bits.len();
+                let reg_bit = solver.new_var();
+                let weight = 1usize << bit;
+                self.reg_bits.push(reg_bit);
+                soft_constraints.insert(!reg_bit, (Soft::Primary, weight, weight));
+            }
+            self.remaining = Some(build_binary_register(&self.reg_bits));
+        }
+
+        if self.hard_upper_bound.map_or(true, |old| upper_bound < old) {
+            let reg_expr = build_binary_register(&self.reg_bits);
+            let ub_expr = Binary::constant(upper_bound);
+            assert_binary_le(solver, &reg_expr, &ub_expr);
+            self.hard_upper_bound = Some(upper_bound);
+        }
+    }
+}
+
+fn compute_initial_heuristic_upper_bound<L: satcoder::Lit>(
+    mk_env: &impl Fn() -> grb::Env,
+    problem: &Problem,
+    delay_cost_type: DelayCostType,
+    occupations: &TiVec<VisitId, Occ<L>>,
+) -> Result<Option<(i32, Vec<Vec<i32>>)>, SolverError> {
+    let initial_solution = extract_solution(problem, occupations);
+    let env = mk_env();
+
+    for use_strong_branching in [false, true] {
+        if let Some(ub_sol) = heuristic::solve_heuristic_better(
+            &env,
+            problem,
+            delay_cost_type,
+            use_strong_branching,
+            Some(&initial_solution),
+        )? {
+            let ub_cost = problem.verify_solution(&ub_sol, delay_cost_type).unwrap();
+            return Ok(Some((ub_cost, ub_sol)));
+        }
+    }
+
+    Ok(None)
+}
+
+pub fn solve<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
     mk_env: impl Fn() -> grb::Env + Send + 'static,
     solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
     problem: &Problem,
@@ -127,7 +360,7 @@ pub fn solve<L: satcoder::Lit + Copy + std::fmt::Debug>(
     )
 }
 
-pub fn solve_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug>(
+pub fn solve_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
     mk_env: impl Fn() -> grb::Env + Send + 'static,
     solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
     problem: &Problem,
@@ -161,7 +394,10 @@ pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug>(
     delay_cost_type: DelayCostType,
     debug_out: impl Fn(DebugInfo),
     output_stats: impl FnMut(String, serde_json::Value),
-) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
+) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError>
+where
+    L: 'static,
+{
     solve_debug_with_settings(
         mk_env,
         solver,
@@ -174,7 +410,7 @@ pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug>(
     )
 }
 
-pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug>(
+pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
     mk_env: impl Fn() -> grb::Env + Send + 'static,
     mut solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
     problem: &Problem,
@@ -250,6 +486,7 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug>(
 
     let mut total_cost = 0;
     let mut soft_constraints = HashMap::new();
+    let mut binary_objective = BinaryObjective::new();
     let mut debug_actions = Vec::new();
     // let mut cost_var_names: HashMap<Bool<L>, String> = HashMap::new();
 
@@ -283,6 +520,11 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug>(
     }
 
     const USE_HEURISTIC: bool = true;
+    let mut best_heur = if USE_HEURISTIC {
+        compute_initial_heuristic_upper_bound(&mk_env, problem, delay_cost_type, &occupations)?
+    } else {
+        None
+    };
 
     let heur_thread = USE_HEURISTIC.then(|| {
         let (sol_in_tx, sol_in_rx) = std::sync::mpsc::channel();
@@ -291,7 +533,6 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug>(
         heuristic::spawn_heuristic_thread(mk_env, sol_in_rx, problem, delay_cost_type, sol_out_tx);
         (sol_in_tx, sol_out_rx)
     });
-    let mut best_heur: Option<(i32, Vec<Vec<i32>>)> = None;
 
     loop {
         if start_time.elapsed().as_secs_f64() > timeout {
@@ -899,10 +1140,11 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug>(
                 return Ok((trains, stats));
             }
         }
-        enum Soft<L: satcoder::Lit> {
-            Delay,
-            Totalizer(Totalizer<L>, usize),
-        }
+        let objective_ub = best_heur
+            .as_ref()
+            .map(|(ub_cost, _)| usize::try_from(*ub_cost).unwrap())
+            .expect("binary objective requires an initial heuristic upper bound");
+        binary_objective.ensure_upper_bound(&mut solver, &mut soft_constraints, objective_ub);
 
         for (visit, new_timepoint_var, new_t) in new_time_points.drain(..) {
             n_timepoints += 1;
@@ -934,7 +1176,7 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug>(
                         occupations[visit].cost.push(next_cost_var);
                         assert!(cost + 1 == occupations[visit].cost.len());
 
-                        soft_constraints.insert(!next_cost_var, (Soft::Delay, 1, 1));
+                        binary_objective.add_term(&mut solver, next_cost_var, 1);
                         // println!(
                         //     "Extending t{}v{} to cost {} {:?}",
                         //     train_idx, visit_idx, cost, next_cost_var
@@ -960,16 +1202,20 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug>(
                     //     soft_constraints.insert(!cost_var, (Soft::Delay, weight, weight));
                     // }
 
+                    let mut emitted_terms = Vec::new();
                     occupations[visit].cost_tree.add_cost(
                         &mut solver,
                         new_timepoint_var,
                         new_timepoint_cost,
                         // var_name,
                         &mut |weight, cost_var| {
-                            // cost_var_names.insert(!cost_var, name);
-                            soft_constraints.insert(!cost_var, (Soft::Delay, weight, weight));
+                            emitted_terms.push((cost_var, weight));
                         },
                     );
+
+                    for (cost_var, weight) in emitted_terms {
+                        binary_objective.add_term(&mut solver, cost_var, weight);
+                    }
                 }
             }
 
@@ -1001,12 +1247,12 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug>(
             // );
         }
 
-        let mut n_assumps = 20;
+        let mut n_assumps = soft_constraints.len();
         let mut assumptions = soft_constraints
             .iter()
             .map(|(k, (_, w, _))| (*k, *w))
             .collect::<Vec<_>>();
-        assumptions.sort_by_key(|(_, w)| -(*w as isize));
+        assumptions.sort_by(|a, b| b.1.cmp(&a.1));
 
         log::info!(
             "solving it{} with {} timepoints {} conflicts",
@@ -1295,10 +1541,10 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug>(
                 // assert!(new_cost >= 0);
                 // assert!(original_cost == 1);
                 match soft {
-                    Soft::Delay => {
+                    Soft::Primary => {
                         if new_cost > 0 {
                             // println!("  ** Reducing delay cost from {} to {}", cost, new_cost);
-                            soft_constraints.insert(*c, (Soft::Delay, new_cost, new_cost));
+                            soft_constraints.insert(*c, (Soft::Primary, new_cost, original_cost));
                         } else {
                             // println!("  ** Removing delay cost {}", cost);
                         }

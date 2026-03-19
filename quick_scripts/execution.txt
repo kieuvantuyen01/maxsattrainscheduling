@@ -1,5 +1,11 @@
 ./target/release/ddd \
   -s maxsat_ddd_ladder_scl \
   --txt-instances \
+  --objective cont \
+  --json-output results_maxsat_full_cont.json
+
+  ./target/release/ddd \
+  -s sat_ddd_scl \
+  --txt-instances \
   --objective infsteps180 \
-  --json-output results_maxsat_ddd_ladder_scl_infsteps180.json
+  --json-output results_sat_scl_infsteps180.json
