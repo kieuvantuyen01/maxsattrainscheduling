@@ -1,0 +1,558 @@
+\documentclass[10pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage[version=4]{mhchem}
+\usepackage{stmaryrd}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue, filecolor=magenta, urlcolor=cyan,}
+\urlstyle{same}
+\usepackage{graphicx}
+\usepackage[export]{adjustbox}
+\graphicspath{ {./images/} }
+\usepackage{caption}
+\usepackage{bbold}
+
+\title{A MaxSAT approach for solving a new Dynamic Discretization Discovery model for train rescheduling problems }
+
+\author{Anna Livia Croella ${ }^{\mathrm{a}, *}$, Bjørnar Luteberget ${ }^{\mathrm{b}}$, Carlo Mannino ${ }^{\mathrm{b}, \mathrm{c}}$, Paolo Ventura ${ }^{\text {d }}$\\
+${ }^{a}$ Sapienza University of Rome, Rome, Italy\\
+${ }^{b}$ SINTEF, Oslo, Norway\\
+${ }^{c}$ University of Oslo, Oslo, Norway\\
+${ }^{d}$ Istituto di Analisi dei Sistemi ed Informatica (IASI) del CNR, Rome, Italy}
+\date{}
+
+
+%New command to display footnote whose markers will always be hidden
+\let\svthefootnote\thefootnote
+\newcommand\blfootnotetext[1]{%
+  \let\thefootnote\relax\footnote{#1}%
+  \addtocounter{footnote}{-1}%
+  \let\thefootnote\svthefootnote%
+}
+
+%Overriding the \footnotetext command to hide the marker if its value is `0`
+\let\svfootnotetext\footnotetext
+\renewcommand\footnotetext[2][?]{%
+  \if\relax#1\relax%
+    \ifnum\value{footnote}=0\blfootnotetext{#2}\else\svfootnotetext{#2}\fi%
+  \else%
+    \if?#1\ifnum\value{footnote}=0\blfootnotetext{#2}\else\svfootnotetext{#2}\fi%
+    \else\svfootnotetext[#1]{#2}\fi%
+  \fi
+}
+
+\begin{document}
+\maketitle
+\captionsetup{singlelinecheck=false}
+
+
+\begin{abstract}
+Train scheduling is a critical activity in rail traffic management, both offline (timetabling) and on-line (dispatching). Time-Indexed formulations for scheduling problems are stronger than other classical formulations, like Big$M$. Unfortunately, their size grows usually very large with the size of the scheduling instance, making even the linear relaxation hard to solve. Moreover, the approximation introduced by time discretization can lead to solutions which cannot be realized in practice. Dynamic Discretization Discovery (DDD), recently introduced by Boland et al. (2017) for the continuous-time service network design problem, is a technique to keep at bay the growth of Time-Indexed formulations and their response times and, at the same time, ensure the necessary modelling precision. By exploiting the DDD paradigm, we develop a novel approach to train dispatching and, more in general, to jobshop scheduling. The algorithm implemented represents the first application of a Maximum SATisfiability problem approach to the field. In our comparisons on real-life instances of train dispatching, our restricted Time-Indexed formulation results faster on piece-wise constant objective functions, while the Big- $M$ approach maintains the lead on linear continuous objectives.
+\end{abstract}
+
+\footnotetext{*Corresponding author\\
+Email addresses: \href{mailto:annalivia.croella@uniroma1.it}{annalivia.croella@uniroma1.it} (Anna Livia Croella), \href{mailto:bjornar.luteberget@sintef.no}{bjornar.luteberget@sintef.no} (Bjørnar Luteberget), \href{mailto:carlo.mannino@sintef.no}{carlo.mannino@sintef.no} (Carlo Mannino), \href{mailto:paolo.ventura@iasi.cnr.it}{paolo.ventura@iasi.cnr.it} (Paolo Ventura)
+}Keywords: Train Rescheduling, Dynamic Discretization Discovery, Maximum SATisfiability problem
+
+\section*{1. Introduction}
+When trains move through a railway network, they occupy a sequence of rail resources, such as track segments, platforms, stations, etc. Roughly speaking, train scheduling amounts to establishing the time in which each train enters and exits the resources encountered on its path. Train scheduling is central in various phases of traffic planning. In strategic and tactical planning - performed from 5 years to months or even to few hours before the actual movements - train scheduling amounts to establishing the timetable trains should follow in their trip. Roughly speaking, train scheduling amounts to establishing the time in which each train enters and exits the resources encountered on its path [1]. Train scheduling is central in various phases of traffic planning. and in strategic and tactical planning - performed from 5 years to months or even to few hours before the actual movements. In the operational phase, when trains finally move through the railway, the original schedule must be adjusted in real-time to factor in erratic train delays, small or large network disruptions, missing crews, etc. This on-line activity is called train rescheduling or train dispatching [2] - the latter typically also including the possibility of rail path changes. There may be different objectives, depending on the planning phase. For instance, in the strategic and tactical phase, one is interested in producing timetables maximizing some service requirement (e.g. the number of running trains [2]), or some robustness measures $[1,3,4]$. At the operational level, in contrast, one typically wants to minimize some measure of the deviation of the actual schedule from the official timetable [2].
+
+From the optimization theory standpoint, train scheduling is a generalization of job-shop (with blocking and no-wait constraints, [5]) and thus of machine scheduling, and as such it can benefit from a vast body of literature. Even if we limit ourselves to the scientific literature specifically devoted to train scheduling, the number of studies has grown exponentially in the past decades. In our literature discussion we will focus on a few of the most relevant papers, and refer the interested reader to recent surveys $[1,6,2]$.
+
+There are of course different approaches to train scheduling, but here we are interested in those based on Mixed Integer Linear Program (MILP),\\[0pt]
+which are the most adopted in the literature [2]. The main issue that such approaches must face is how to represent the fact that two trains cannot occupy the same track segment (or other pairs of incompatible railway resources) simultaneously. Then, in any feasible schedule, one of the conflicting trains must use the contended resource before the other train, and this gives rise to a disjunctive constraint on the scheduling variables. Mainly, two classes of MILP models are adopted in the literature on train scheduling [7]: Big-M formulations and Time-Indexed (TI) formulations (see [8] for theoretical insights). In Big- $M$ formulations, the time a train $i$ enters a given resource $r$ on its path is described by a continuous variable $t_{i, r}$. In order to represent a disjunctive constraint, one must introduce a binary variable and two constraints which contains the notorious Big- $M$ term, that is a very large coefficient. In TI formulations the planning horizon is subdivided in time-intervals and a binary variable $x_{p}^{i r}$ will be 1 if train $i$ enters resource $r$ at time $p$. The fact that two trains $i, j$ cannot occupy the same resource $r$ implies that, if train $i$ enters a resource $r$ at time $p$ then, depending on the running times of the two trains, train $j$ cannot enter $r$ at some times $q$. In turn, this translates into packing constraints of the type
+
+
+\begin{equation*}
+x_{p}^{i r}+x_{q}^{j r} \leq 1 \tag{1}
+\end{equation*}
+
+
+When used in a branch-and-bound approach, Big- $M$ formulations typically return poor bounds, which in turn causes large branching trees. In contrast, TI formulations return better bounds and smaller trees. However, depending on the size of the interval in the discretized horizon, TI formulations have two main drawbacks:
+
+\begin{enumerate}
+  \item Oversize. When intervals are small and many, TI formulations typically contain a very large number variables and constraints. This fact tends to slow down the solution time in each branching node by a factor which is usually (much) larger than the reduction in the tree size. In the few comparative experiments available in the literature, the comparison is by far in favor of the Big-M alternative [9].
+  \item Bad approximation. Larger and fewer intervals result in fewer variables and constraints, but poorer approximation. As a consequence, feasible solutions in the model may prove infeasible in practice on field, or feasible field schedules may be cut off by the TI model [10, 11].
+\end{enumerate}
+
+For the above reasons, there are indeed not too many examples in the literature of TI formulations devoted to train scheduling. Most of them are devoted to the off-line version (i.e. timetabling, see [1] for a survey) and only very few to dispatching (such as [12, 13, 14, 15]). In any case, because the complete formulation would be too large to handle, all these papers resort to delayed column generation procedures [16]. The idea is to start with only a subset of the variables (and constraints), solve this restricted problem and then iteratively identify and add missing variables and/or constraints, and solve again. The process is iterated until some conditions are satisfied, and typically the final instance is much smaller than the full TI instance. An alternative search path is solving the Integer Linear Program (ILP) relaxation of the full TI formulations, both through the exploitation of Lagrangian relaxation models (for example, with alternating direction method of multipliers algorithms - [17, 18]) and/or its dual problem combined with branch-and-price techniques (see [19, 20]). In any case, despite the complexity and ingenuity of the most recent solution algorithms, TI formulations do not seem to perform better than a standard Big- $M$ formulation, solved by a standard commercial solver. For instance, compare the behaviour of a recent TI approach presented in [15] for a medium-size station (Doncaster) with the experiments over a large junction performed in [21] with a Big- $M$ model at microscopic network level and an almost 10 year-old technology.
+
+On the other hand, it would be very handy to be able to solve large instances of train scheduling with TI rather than Big- $M$ formulations. Indeed, TI formulations are more flexible than the Big- $M$ counterparts in expressing and manipulating complicated constraints and non-linear objectives as the ones occurring in the train dispatching framework.
+
+Dynamic Discretization Discovery (DDD) is a technique to solve TI formulations recently introduced by [22] and then further extended in [23,24, 25, 26]. DDD was developed to cope with the size and approximation issues above discussed. The main idea applied in this paper is similar to the bucket discretization described in [27] and the method presented in [28]. We consider for each train $i$ and given resource $r$ a partition of the time horizon into intervals $\lambda_{1}, \ldots, \lambda_{n}$ of different sizes. We hence construct an integer linear program, called Interval Assignment Problem (IAP), with binary variables $x$ (see the forthcoming Section 3.2). Then $x_{i r}^{p}$ is 1 if and only if train $i$ enters resource $r$ at some time $t_{i, r} \in \lambda_{p}$ during the $p$-th interval (that is, not necessarily at the beginning of the interval, as it is in the full TI formulation).
+
+As a consequence, the packing constraint (1) is introduced only if, for every choice of $t_{i, r} \in \lambda_{p}$ and $t_{j, r} \in \lambda_{q}$, trains are in conflict on resource $r$. Finally, the cost of each variable is chosen in such a way that the value of the optimal solution to the DDD formulation is a lower bound on the cost of the optimal solution to the original problem.
+
+In the DDD approach, intervals and associated variables are generated iteratively, by further subdividing intervals generated in previous iterations. At the end of each iteration $k$, the optimal solution $x^{k}$ to the current 0,1 formulation is calculated. If we can associate $x^{k}$ with a feasible schedule $t^{k}$, and the cost of $t^{k}$ is not larger than the cost of $x^{k}$, then we are done. Otherwise we iterate.
+
+Different DDD approaches differ in the way intervals are iteratively generated, how costs are defined and how feasible solutions to the original problem are constructed from the current TI solution. Although the idea of a dynamic discovery is fairly natural, there are many possible ways to implement it and engineering the algorithm is one of the most delicate phases of its design. In the present work we present a viable implementation of the DDD for the train scheduling problem. As we will show in more detail in the following sections, such implementation fulfils all the three components of the DDD paradigm, as introduced in [11]. A crucial component of our solution methodology is the way the IAP is solved at each iteration of the DDD approach. In this work we transform it into the problem of satisfying a family of logic clauses (SAT problem). It turned out that solving such system by means of an open source SAT solver is dramatically more efficient than solving the original IAP by a state-of-the-art MILP solver. Note that a similar behaviour was observed in [29] where the authors compare a MILP and a SAT version of certain binary programs, and experience significant improvements with the latter. Formulations with disjunctive precedence constraints (such as Big- M formulations) make use of continuous variables, and cannot be directly translated into a SAT problem. In [29] Leutwiler and Corman resolve this problem by using a Satisfiability Modulo Theories (SMT) approach. However, with a TI formulation the MILP contains only binary variables and all the constraints can be directly translated into SAT. The objective function can also be handled in a MaxSAT problem - the optimization version of the SAT problem.
+
+MaxSAT solvers implemented on top of standard SAT solvers have been very successful lately [30]. In this paper, we successfully used the RC2 algorithm [31] to solve DDD formulations of the train scheduling problem.
+
+A preliminary version of the ideas developed in this work were presented\\[0pt]
+in [32] and in [33].\\
+In the end, by our version of the DDD approach plus the transformation into a SAT problem of the associated binary programs, we were able to obtain speed-ups over our efficient implementation of the Big- $M$ formulation.
+
+\section*{2. Time-Indexed formulation for the Train Re-scheduling Problem}
+The main purpose of this paper is to show how the DDD mechanism can be exploited in order to make TI formulations competitive with the classic Big- $M$ formulation for train scheduling. To this end, in our developments and comparisons, we focus on a basic version of the problem, which corresponds to finding a plan for a macroscopic approximation of the rail network [34] in which stations are collapsed into simple nodes and routing is omitted. Note that this is also a usual practice in manual train scheduling, and also the master problem in advanced decomposition approaches (see, e.g., [35, 36, 37, 38]). Accordingly, in our experiments, we will make use of macroscopic real-life instances.
+
+We look at the on-line version of the train scheduling problem, also called train dispatching or train rescheduling, and we do not consider the possibility of rerouting. Note that the model can be extended to cope with multiple routes, for instances as in [29, 39]. In this version of the problem, we are given a reference timetable (i.e. the timetable which is published either for passengers or for the railway personnel), and the position of the trains at the current time. Note that trains may be delayed with respect to the reference timetable. Depending on the next scheduling decisions, some trains may reduce their delays at destination, while others may increase it. The target is to schedule trains for the next few hours so as to minimize the cost of delays. We next introduce our main modeling choices and the formalism.
+
+\subsection*{2.1. Problem Definition}
+Networks, trains and rail paths. In Figure 1 we show a schematic section of a railway infrastructure which comprises a number of sub-networks, called lines. Each line is schematized as an alternating sequence of stations and interconnecting tracks. Stations are special groups of tracks where trains can stop and perform some activities (such as embarking/disembarking passengers, refuel, etc.). Tracks are further subdivided in (one or more) tracks segments or block sections, that can accommodate at most a train at a time.
+
+\begin{figure}[h]
+\begin{center}
+  \includegraphics[max width=\textwidth]{783ca248-2d06-488a-8f97-aa57ecf80ac7-07}
+\captionsetup{labelformat=empty}
+\caption{Figure 1: Schematic representation of a railway infrastructure. Stations are depicted as filled rectangles.}
+\end{center}
+\end{figure}
+
+Tracks are either bidirectional, i.e. they can be traversed from in both directions, or unidirectional. We let $R$ be the set of all track segments.
+
+In the example, train $i$ travels from west to east reaching station $\beta$, while train $j$ is departing from station from station $\gamma$ running west. Note that $j$ can either proceed on its current line and reach station $\beta$ and station $\alpha$, or change to the lower line and proceed to $\varphi$.
+
+If train $j$ continues on the current track, at some point it will encounter train $i$. Since train $i$ and $j$ are running in opposite directions, they are called crossing trains. Trains running in the same directions and on the same sequence of tracks are called trailing trains.
+
+In the Train Re-scheduling Problem (TRP) addressed in this paper we are given a set of trains $I$ and we assume their path across the network is given.
+
+Definition 1. A rail path is the sequence of contiguous track segments of the line traversed by a train from its origin to its destination. The direction of the train depends on the ordering of its track segments, either west-bound or east-bound.
+
+For each train $i \in I$, we let $R_{i}$ be the ordered set of track segments of its rail path. We therefore have that $R=\cup_{i \in I} R_{i}$. Moreover, we assume that each track segment is traversed only once. Hence, for $r, q \in R_{i}$, we use the notation $r \prec_{i} q\left(r \preceq_{i} q\right)$ if $r$ (strictly, resp.) precedes $q$ in the rail path of $i$.
+
+For $r \in R_{i}$, we also let $l_{i}^{r} \in \mathbb{R}_{+}$be the minimum amount of time $i$ needs to traverse track segment $r$ (running time of $i$ on $r$ ). If no confusion arises, in the following we use $l^{r}$ for $l_{i}^{r}$. Trains may also stop in any station $r$, and we include the value of this given wait or dwell time in the amount $l^{r}$.
+
+Next, for each train $i \in I$ and each track segment $r \in R_{i}$ of its rail path, we let $\underline{t}^{i r}$ denote the earliest time $i$ can enter a track segment. This parameter is either the one specified in the reference timetable, suitably augmented in its first track segment when $i$ is delayed, or it is derived by using the minimum running times on the track segments.
+
+Schedule and conflicts. A train schedule is a vector $t^{i} \in \mathbb{R}^{\left|R_{i}\right|}$, where component $t^{i r}$ denotes the time when $i$ enters track segment $r \in R_{i}$. The (full) schedule will be thus the vector $t=\left\{t^{i r} \mid i \in I, r \in R_{i}\right\}$. For physical or safety reasons, certain track segments cannot be occupied by two trains simultaneously. In particular, for each pair of trains $i, j$ let us denote by $\mathcal{D}_{i j} \subseteq R_{i} \times R_{j}$ the set of rail paths pairs ( $r \in R_{i}, q \in R_{j}$ ) such that either $i$ enters $r$ before $j$ enters $q$ or $j$ enters $q$ before $i$ enters $r$. Let $l_{i j}^{r q}$ be the minimum amount of time that, for safety and business rules, train $i$ needs to wait for occupying the track segment $r$ after train $j$ used track segment $q$ (again, if no confusion arises, we use $l^{r q}$ for $l_{i j}^{r q}$ ). Hence, we either have $t^{j q} \geq t^{i r}+l^{r q}$ or $t^{i r} \geq t^{j q}+l^{q r}$, respectively.
+
+Definition 2. A schedule $t=\left\{t^{i r} \mid i \in I, r \in R_{i}\right\}$ is feasible if it satisfies the following constraints:\\
+i) (lower bound constraints) $t^{i r} \geq \underline{t}^{i r}$, for each $i \in I$, and $r \in R_{i}$;\\
+ii) (train-rail path precedence) $t^{i q} \geq t^{i r}+l^{r}$, for each $i \in I$, and $r, q \in R_{i}$ with $r \prec_{i} q$;\\
+iii) (disjunctive precedence) either $t^{j q} \geq t^{i r}+l^{r q}$ or $t^{i r} \geq t^{j q}+l^{q r}$, for each distinct $i, j \in I$ and each $(r, q) \in \mathcal{D}_{i j}$.
+
+If a schedule violates $i i i)$ for a $(r, q) \in \mathcal{D}_{i j}$, then we say that it contains a conflict (associated with $(r, q)$ ); otherwise the schedule is said conflict-free. We assume that any movement (i.e. a train entering a track segment) must happen before time $M$, where $M$ is a suitably large real number, i.e., $t^{i r} \ll M$ for each $i \in I$, and $r \in R_{i}$.
+
+Objective function. Following the normal practice in railway industry, we define as optimal a schedule that minimizes the train delays at their final destination stations and we consider separable cost functions. For each $i \in I$, let $t^{i f}$ be the time train $i$ enters its final station. As defined before, we let\\
+$\underline{t}^{i f}$ be the wanted arrival time for $i$ at final destination. Then, the delay of $i \in I$ is
+
+$$
+d\left(t^{i f}\right)=\max \left(0, t^{i f}-\underline{t}^{i f}\right)
+$$
+
+Then, the cost function is defined as $\Sigma_{i \in I} c^{i f}$, and we consider three cases:
+
+\begin{enumerate}
+  \item Linear continuous: simply summing the delays, namely $c^{i f}=d\left(t^{i f}\right)$, for each train $i \in I$. In the Big- $M$ formulation, this objective is implemented by introducing one continuous variable and one linear inequality for each $t^{i f}$.
+  \item Linear rounded: $c^{i f}=\left\lfloor d\left(t^{i f}\right) / Q\right\rfloor$, for each train $i \in I$, where $Q$ is a constant. We use $Q=180$, i.e., 3 minutes. This objective is similar to the stepwise function described below, except that it does not have a maximum cost.
+\end{enumerate}
+
+In the Big- $M$ formulation, this objective is implemented by introducing one integer variable and one linear constraint for each $t^{i f}$.\\
+3. Stepwise: Each train has its own finite sequence of steps valid for specific delay ranges. For example (see also Figure 2):
+
+$$
+c^{i f}= \begin{cases}3 & d\left(t^{i f}\right)>360 \\ 2 & d\left(t^{i f}\right)>180 \\ 1 & d\left(t^{i f}\right)>0 \\ 0 & d\left(t^{i f}\right)=0\end{cases}
+$$
+
+In the Big- $M$ formulation, this objective is implemented through the introduction of one binary variable.\\
+The use of stepwise objective functions is inspired by the official performance indicators that railway administrations use to report their punctuality, including the Norwegian railways. This can be considered to be the high-level goal of railway dispatching. Typically, small deviations are not counted in this performance indicator, and instead the punctuality is defined as the percentage of trains that were less than e.g. 5 minutes delayed.\\
+It is also interesting to note that since this cost function has a maximum cost per train, it means that as soon as a train has exceeded the highest delay threshold, making it additionally delayed has no additional cost,
+
+\begin{figure}[h]
+\begin{center}
+  \includegraphics[max width=\textwidth]{783ca248-2d06-488a-8f97-aa57ecf80ac7-10}
+\captionsetup{labelformat=empty}
+\caption{Figure 2: Example of a stepwise linear convex function considered to cost the delay (in seconds) of a generic train.}
+\end{center}
+\end{figure}
+
+meaning that it can be left standing in a station for as long as desirable to make other trains achieve lower delays. This mechanism simulates the real-world dispatcher behavior of making a train partially cancelled in case of large traffic disruptions. In practical use, finding an optimal solution where a train has exceeded the highest delay threshold can be interpreted as a suggestion to cancel that train.
+
+\subsection*{2.2. A full TI formulation}
+For ease of reference, we now present a full TI formulation for the TRP. For each $i \in I$ and $r \in R_{i}$, we call feasibility interval the time interval $\left[\underline{t}^{i r}, M\right)$ in which train $i$ can enter track segment $r$, i.e. its planning horizon. Let $w$ be the time-intervals width, we divide each feasibility interval in sub-intervals of the type:
+
+$$
+[p, p+w) \text { with } p \in \Pi^{i r}=\left\{\underline{t}^{i r}, \underline{t}^{i r}+w, \underline{t}^{i r}+2 w, \ldots, \underline{t}^{i r}+\left\lfloor\frac{M-\underline{t}^{i r}}{w}\right\rfloor \cdot w\right\} \text {. }
+$$
+
+We then let $\Pi=\left\{\Pi^{i r}: i \in I, r \in R_{i}\right\}$ and define the following set of binary variables:
+
+$$
+x_{p}^{i r}=\left\{\begin{array}{ll}
+1 & \text { if train } i \text { enters } r \text { at time } p \\
+0 & \text { otherwise }
+\end{array} \quad i \in I, r \in R_{i}, p \in \Pi^{i r} .\right.
+$$
+
+The full TI formulation is hence given as follows:
+
+\[
+\begin{array}{lll}
+\min & \sum_{i \in I} \sum_{p \in \Pi^{i f}} c^{i f} \cdot x_{p}^{i f} & \\
+\text { s.t. } & & \\
+(1) & \sum_{p \in \Pi^{i r}} x_{p}^{i r}=1, & i \in I, r \in R_{i}  \tag{TI}\\
+(2) & x_{p}^{i r}+x_{p^{\prime}}^{j q} \leq 1, & p \in \Pi^{i r} \text { incompatible with } p^{\prime} \in \Pi^{j q} \\
+& & \Pi^{i r}, \Pi^{j q} \in \Pi \text { and }(i, r, p) \neq\left(j, q, p^{\prime}\right) \\
+& x_{p}^{i r} \in\{0,1\} & i \in I, r \in R_{i}, p \in \Pi^{i r} .
+\end{array}
+\]
+\captionsetup{singlelinecheck=false}
+The first group of constraints states that $x$ defines a (full) train schedule, whereas the second imposes schedule feasibility. In particular, looking at Definition 2, there is a packing constraints of type (2)
+
+    \begin{itemize}
+      \item between two variables $x_{p}^{i r}$ and $x_{p^{\prime}}^{i q}$, with $r \prec_{i} q$, if and only if $p^{\prime}<p+l^{r}$ (they violate condition 2.ii);
+      \item between two variables $x_{p}^{i r}$ and $x_{p^{\prime}}^{j q}$, with $(r, q) \in \mathcal{D}_{i j}$, if and only if $p^{\prime}<p+l^{r q}$ and $p<p^{\prime}+l^{q r}$ (they violate condition 2.iii).
+    \end{itemize}
+Note that condition $i$ of Definition 2 is trivially satisfied by taking a planning horizon equal to the feasibility interval $\left[\underline{t}^{i r}, M\right)$. We highlight that TI models allow to express complicated (non-linear) objectives: any $c$ function introduced in the previous section can be translated into the sum of the costs realized by each chosen interval.
+
+\section*{3. The Dynamic Discretization Discovery method}
+In this section we describe the DDD paradigm (according to [11]) and how we re-interpret it in the context of the TRP.
+
+The DDD approach involves:
+
+    \begin{itemize}
+      \item the construction of a sequence of (small) approximated models of the original scheduling problem, that are easier to solve than the full problem. As anticipated in the introduction, the models $D_{1}, D_{2}, \ldots$ are TI formulations (for job-shop scheduling), where the discretization periods have different sizes. The value of an optimal solution $x_{k}^{*}$ to the $k$-th model in the sequence provides a lower bound on the optimal solution value to the original problem.
+      \item a function $\Phi$ which associates a schedule (for the original problem) with solution $x_{k}$. If the schedule $\Phi\left(x_{k}^{*}\right)$ is feasible for the original problem, then it is optimal.
+      \item a dynamic discovery mechanism that allows, when the schedule is not feasible, to refine the previous model by further discretizing time periods.
+    \end{itemize}
+A generalized scheme of the paradigm DDD and its fundamental three steps can be seen in Figure 3.
+
+\begin{figure}[h]
+\begin{center}
+  \includegraphics[max width=\textwidth]{d77e452b-f0ab-4727-aece-dfc648545779-12}
+\captionsetup{labelformat=empty}
+\caption{Figure 3: Generalized flowchart of the DDD paradigm.}
+\end{center}
+\end{figure}
+
+Observe that, the optimal solution $x_{k}^{*}$ of the current partial model $D_{k}$ provides a lower bound for the original problem. If $\Phi\left(x_{k}^{*}\right)$ is not feasible for the original TRP, then we refine the time discretization at step 3 making $x_{k}^{*}$ infeasible for the new partial model $D_{k+1}$. Additional mechanisms can be added to the method, such as those repairing a currently infeasible solution. Also, one can make use of models that provide both an upper and a lower bound for the optimal solution. We remark that a number of parameters, ranging from the way the new refinements are generated to the efficiency of the algorithm used to solve the partial models, affects the implementation of the DDD paradigm.
+
+We now present a combinatorial problem, called IAP, whose optimal solution defines a lower bound for the optimal solution of the TRP.
+
+\subsection*{3.1. The $\Lambda$-Interval Assignment Problem}
+Given for each $i \in I$ and $r \in R_{i}$ the feasibility interval $\left[\underline{t}^{i r}, M\right)$, let $\Lambda^{i r}=\left\{\lambda_{1}^{i r}, \lambda_{2}^{i r}, \ldots, \lambda_{n^{i r}}^{i r}\right\}$ be a partition of the feasibility interval such that\\
+$\lambda_{p}^{i r}=\left[h_{p}^{i r}, h_{p+1}^{i r}\right)$, for $1 \leq p<n^{i r}, h_{1}^{i r}=\underline{t}^{i r}$, and $\lambda_{n^{i r}}^{i r}=\left[h_{n^{i r}}^{i r}, M\right)$. Also, let $\bar{c}\left(\lambda_{p}^{i r}\right)=c\left(h_{p}^{i r}\right)$ be the cost associated with the interval $\lambda_{p}^{i r}$. That is, the cost of the interval is the cost of train $i$ entering track segment $r$ at the beginning of the interval. We finally let $\Lambda=\left\{\Lambda^{i r}: i \in I, r \in R\right\}$ be the set of all partitions.
+
+Note first that for $\lambda \in \Lambda^{i r}, t^{i r} \in \lambda$ implies that $t^{i r}$ satisfies the lower bound condition (2.i). Now, let $i \in I$ and $r, q \in R_{i}$ be distinct track segments, with $r \prec_{i} q$.
+
+Definition 3 (Rail Path incompatible intervals). Two distinct intervals $\lambda_{p}^{i r} \in \Lambda^{i r}$ and $\lambda_{p^{\prime}}^{i q} \in \Lambda^{i q}$ are rail path incompatible if condition (2.ii) is violated for every $t^{i r} \in \lambda_{p}^{i r}$ and every $t^{i q} \in \lambda_{p^{\prime}}^{i q}$. That is, assuming $r \prec_{i} q$, for every $t^{i r} \in \lambda_{p}^{i r}$ and every $t^{i q} \in \lambda_{p^{\prime}}^{i q}$, we have $t^{i q}<t^{i r}+l^{r}$.
+
+Corollary 1. The two intervals $\lambda_{p}^{i r}=\left[h_{p}^{i r}, h_{p+1}^{i r}\right)$ and $\lambda_{p^{\prime}}^{i q}=\left[h_{p^{\prime}}^{i q}, h_{p^{\prime}+1}^{i q}\right)$, with $r, q \in R_{i}$ and $r \prec_{i} q$, are rail path incompatible if and only if $h_{p}^{i r}+l^{r}>h_{p^{\prime}+1}^{i q}$.
+
+In other words, if there is no way for train $i$ to enter $r$ during interval $\lambda_{p}^{i r}$ and to enter $q$ during time interval $\lambda_{p^{\prime}}^{i q}$.
+
+Definition 4 (Conflict incompatible intervals). Let $i, j \in I$ be two distinct trains, and let $r \in R_{i}$, and $q \in R_{j}$. We say that the intervals $\lambda_{p}^{i r}$ and $\lambda_{p^{\prime}}^{j q}$ are conflict incompatible if condition (2.iii) is violated for every $t^{i r} \in \lambda_{p}^{i r}$ and every $t^{j q} \in \lambda_{p^{\prime}}^{j q}$. That is, for every $t^{i r} \in \lambda_{p}^{i r}$ and every $t^{j q} \in \lambda_{p^{\prime}}^{j q}$, we have both $t^{i r}<t^{j q}+l^{q r}$ and $t^{j q}<t^{i r}+l^{r q}$.
+
+Namely, train $i$ cannot enter track $r$ during interval $\lambda_{p}^{i r}$ if train $j$ is entering track $q$ in time interval $\lambda_{p^{\prime}}^{j q}$.
+
+Corollary 2. Given two intervals $\lambda_{p}^{i r}=\left[h_{p}^{i r}, h_{p+1}^{i r}\right)$ and $\lambda_{p^{\prime}}^{j q}=\left[h_{p^{\prime}}^{j q}, h_{p^{\prime}+1}^{j q}\right)$, with $i \neq j, r \in R_{i}$ and $q \in R_{j}$, they are said conflict incompatible if and only if both $h_{p^{\prime}}^{j q}+l^{q r}>h_{p+1}^{i r}$ and $h_{p}^{i r}+l^{r q}>h_{p^{\prime}+1}^{j q}$.
+
+Figure 4 shows an example for the rail path incompatibility and one for the conflict incompatibility. For both (rail path and conflict) incompatibilities the following holds.
+
+\begin{figure}[h]
+\begin{center}
+  \includegraphics[max width=\textwidth]{d77e452b-f0ab-4727-aece-dfc648545779-14}
+\captionsetup{labelformat=empty}
+\caption{Figure 4: Example of intervals that are rail path incompatible (4a) and conflict incompatible (4b).}
+\end{center}
+\end{figure}
+
+Remark 1. Let $\lambda, \lambda^{\prime}$ be two incompatible intervals, let $\bar{\lambda}, \overline{\lambda^{\prime}}$ be two intervals such that $\bar{\lambda} \subseteq \lambda$ and $\bar{\lambda}^{\prime} \subseteq \lambda^{\prime}$, then $\bar{\lambda}$ and $\bar{\lambda}^{\prime}$ are incompatible intervals.
+
+Note the difference in the definitions of interval incompatibility: in the full time-indexed formulation (TI), two intervals are incompatible exactly if the start times of the intervals are incompatible (i.e. in violation of the constraints of Definition 2). In contrast, in the IAP's definition, two intervals are incompatible if all pairs in the Cartesian product of the intervals are incompatible (wrt. Definition 2).
+
+In an attempt to construct a feasible schedule $t$, we will first find a set of partitions $\Lambda$, then assign an interval $\lambda^{i r} \in \Lambda^{i r}$ for each $i \in I$ and $r \in R_{i}$, and finally choose $t^{i r} \in \lambda^{i r}$. This motivates the following definition:
+
+Definition 5 ( $\Lambda$-interval assignment). Let $\Omega$ be the set of all pairs $(i, r)$\\
+with $i \in I$ and $r \in R_{i}$. A $\Lambda$-interval assignment $S$ is a function $S: \Omega \rightarrow \Lambda$ that assigns each couple $(i, r) \in \Omega$ an interval $S(i, r) \in \Lambda^{i r}$. Moreover, we say that $S$ is feasible if $S(i, r)$ and $S(j, q)$ are not incompatible according to Definition 3 and 4, for each $(i, r)$ and $(j, q) \in \Omega$.
+
+Given a set of partitions $\Lambda$, we define the IAP as the problem of finding a $\Lambda$-feasible assignment $S$ of minimum cost $\bar{c}(S)=\sum_{\lambda \in S} \bar{c}(\lambda)$.
+
+We can indeed formally prove the following theorem:\\
+Theorem 1. If the TRP admits an optimal solution $t^{*}$, then the IAP admits an optimal solution $S^{*}$, and $\bar{c}\left(S^{*}\right) \leq c\left(t^{*}\right)$.
+
+Proof. Let $\tilde{t}$ be a feasible schedule, and let $\Psi_{\Lambda}$ be the function which associates the unique interval $\Psi_{\Lambda}\left(\tilde{t}^{i r}\right)=\lambda_{p}^{i r} \in \Lambda^{i r}$ such that $\tilde{t}^{i r} \in \lambda_{p}^{i r}$. Note that the function is well-defined, since $\tilde{t}^{i r} \in\left[\underline{t}^{i r}, M\right]$ and $\Lambda^{i r}$ is a partition of $\left[\underline{t}^{i r}, M\right]$. We extend the notation by denoting with $\Psi_{\Lambda}(\tilde{t})$ the complete set of intervals $\left\{\Psi_{\Lambda}\left(\tilde{t}^{i r}\right) \mid i \in I, r \in R_{i}\right\}$. We prove that $\Psi_{\Lambda}(\tilde{t})$ is $\Lambda$-feasible. Suppose not, then there exist two distinct intervals $\lambda_{p}^{i r}, \lambda_{p^{\prime}}^{j q}$ which are incompatible.
+
+If $i=j$ then the intervals are rail path-incompatible. Assume $r \prec_{i} q$. Then we must have that $t^{i q}<t^{i r}+l^{r}$ for every $t^{i r} \in \lambda_{p}^{i r}$ and every $t^{i q} \in \lambda_{p^{\prime}}^{i q}$, a contradiction since $\tilde{t}$ is feasible and thus $\tilde{t}^{i q} \geq \tilde{t}^{i r}+l^{r}$.
+
+If $i \neq j$ then the intervals are conflict-incompatible. We arrive at a contradiction again by using a similar argument as above.
+
+So, $\Psi\left(t^{*}\right)$ is $\Lambda$-feasible. Now, since $c$ is non-decreasing, we have that:
+
+$$
+\bar{c}\left(\Psi\left(t^{*}\right)\right):=\sum_{i \in I} \sum_{r \in R_{i}} \bar{c}\left(\Psi\left(t^{i r^{*}}\right)\right) \leq \sum_{i \in I} \sum_{r \in R_{i}} c\left(t^{i r^{*}}\right)=c\left(t^{*}\right) .
+$$
+
+Let $\Phi$ be the function that assigns to each time interval $\left[h, h^{+}\right)$the time instant $t=h$. Moreover, we extend such a definition to a set of intervals $S \subseteq \Lambda$, so to let $\tau=\Phi(S)$ be the schedule $\left\{t^{i r}=h_{p}^{i r} \mid \lambda_{p}^{i r}=\left[h_{p}^{i r}, h_{p+1}^{i r}\right) \in\right. S\}$. Therefore, because of Lemma 1, if $S^{*}$ is a $\Lambda$-feasible set of intervals of minimum cost, with respect to every given partition $\Lambda$, and $\tau^{*}=\Phi\left(S^{*}\right)$ is feasible, then $\tau^{*}$ is also optimal for the TRP.
+
+\subsection*{3.2. A 0,1-LP for the Interval Assignment Problem}
+We now present a 0,1 Linear Program ( 0,1 -LP) for the IAP. We are given the set of partitions $\Lambda=\left\{\Lambda^{i r}: i \in I, r \in R_{i}\right\}$, and we want to find a complete interval assignment $S$ of non-incompatible intervals of minimum cost $\bar{c}(S)$. To this end, we introduce the following set of binary variables:
+
+$$
+x_{p}^{i r}=\left\{\begin{array}{ll}
+1 & \text { if interval } \lambda_{p}^{i r} \in S \\
+0 & \text { otherwise }
+\end{array} \quad i \in I, r \in R_{i}, \lambda_{p}^{i r} \in \Lambda^{i r} .\right.
+$$
+
+Hence, the IAP can be formulated as follows:
+
+\[
+\begin{array}{ll}
+\min & \sum_{i \in I} \sum_{r \in R_{i}} \sum_{\lambda_{p}^{i r} \in \Lambda^{i r}} \bar{c}\left(\lambda_{p}^{i r}\right) \cdot x_{p}^{i r} \\
+\text { s.t. } & \\
+(1) & \sum_{\lambda_{p}^{i r} \in \Lambda^{i r}} x_{p}^{i r}=1, \\
+(2) & x_{p}^{i r}+x_{p^{\prime}}^{j q} \leq 1, \\
+& x_{p}^{i r} \in\{0,1\} \\
+& \lambda_{p}^{i r} \in \Lambda^{i r} \text { incompatible with } \lambda_{p^{\prime}}^{j q} \in \Lambda^{j q}  \tag{IAP}\\
+& \Lambda^{i r}, \Lambda^{j q} \in \Lambda \text { and }(i, r, p) \neq\left(j, q, p^{\prime}\right) \\
+& i \in I, r \in R_{i}, \lambda_{p}^{i r} \in \Lambda^{i r} .
+\end{array}
+\]
+
+Constraints (1) ensure that $x$ is the incidence vector of a complete interval assignment $S$, whereas constraints (2) ensure that the intervals in $S$ are mutually non-incompatible. Also observe that if all the intervals $\lambda_{p}^{i r}$ have unit length, then the formulation (IAP) reduced to a full TI formulation for the TRP with interval width $w=1$ (see formulation (TI) given in Section 2). In turn, if all involved constants are integers (e.g. number of seconds), then the full TI formulation is exact.
+
+Therefore, the following holds:\\
+Observation 1. If the set of partitions $\Lambda$ is such that $h_{p+1}^{i r}=h_{p}^{i r}+1$, for all $i \in I, r \in R_{i}, p \in\left\{1, \ldots, n^{i r}-1\right\}$, then exactly one of the following claims holds: i) IAP and TRP are both infeasible; ii) the value of an optimal solution of the IAP equals the value of an optimal solution of the corresponding TRP.
+
+\subsection*{3.3. A MaxSAT formulation for the Interval Assignment Problem}
+Although ILP (and MILP) formulations are commonly used for solving train scheduling problems, the IAP formulation uses only binary variables, which opens up the possibility for translating the problem into a Boolean satisfiability (SAT) problem.
+
+A SAT problem is usually formulated in logical terms, where a Boolean variable $y$ can take values true or false. A literal $l$ is a variable $y$ or its\\
+negation $\bar{y}$. A clause $c=l_{1} \vee l_{2} \vee \ldots \vee l_{n}$ contains one or more distinct variables, and is satisfied if it has at least one literal assigned to true. A conjunctive normal form (CNF) formula $\phi=c_{1} \wedge c_{2} \wedge \ldots \wedge c_{m}$ is a conjunction of clauses. Given a CNF formula, the SAT asks whether there exists an assignment to the variables that satisfies all the clauses. The optimization version of the SAT problem is the so called (partial) weighted MaxSAT problem: given a CNF, we have that only a (possibly empty) subset of its clauses (hard clauses) must be satisfied, whereas each of the remaining (soft) clauses is given a weight. The goal is to find an assignment of values to the Boolean variables such that all hard clauses are satisfied and the sum of the weights of the satisfied soft clauses is maximized. Exact MaxSAT solvers have made large advances in the last decade, and are applied to industrial problems in scheduling, timetabling, decision trees, and computer hardware and software verification [30, 40].
+
+It is straight-forward to see that MILP problems are a generalization of SAT problems, but for readers who are unfamiliar with logic notation, we show here a simple transformation of a SAT problem into a MILP feasibility problem. Namely, we introduce a binary variable $x_{i}$ for each Boolean variable $y_{i}$. Assigning value $1(0)$ to $x_{i}$ corresponds to assigning value True (False) to $y_{i}$. Next, for each clause $c=y_{1} \vee y_{2} \vee \ldots \vee y_{k} \vee \bar{y}_{k+1} \vee \ldots \vee \bar{y}_{n}$, where the first $k$ literals are positive variables whereas the remaining are negated, we introduce the constraint
+
+
+\begin{equation*}
+x_{1}+\ldots+x_{k}+\left(1-x_{k+1}\right)+\ldots+\left(1-x_{n}\right) \geq 1 \tag{2}
+\end{equation*}
+
+
+Then the CNF formula is satisfiable if and only if there exists a binary vector $x$ which satisfies all constraints (2).
+
+The opposite direction, converting MILPs to SAT problems, does not have a corresponding simple transformation (though several special cases have been studied extensively, see [41]). In the following, we will show that the IAP can be converted into SAT. Indeed, we will show how to formulate the IAP as a MaxSAT problem. Consider the 0,1-LP (IAP) restated in a more compact form:
+
+$$
+\begin{array}{lll}
+\min & \sum_{i \in N} w_{i} x_{i} & \\
+\text { s.t. } & & \\
+i) & \sum_{i \in Q} x_{i}=1, \quad Q \in \mathcal{Q} & \\
+i i) & x_{i}+x_{j} \leq 1, \quad\{i, j\} \in E & \text { (IAP-compact) } \\
+& x_{i} \in\{0,1\} \quad & i \in V .
+\end{array}
+$$
+
+There are two types of constraints: partitioning constraints $i$ ), and (edge) packing constraints $i i$ ). Note that $\mathcal{Q}$ is a set of subsets of $V$, and $E$ is a set of unordered pairs of $V$.
+
+The 0,1-LP (IAP-compact) can be reduced to (partial) MaxSAT by constructing an equivalent CNF formula. In particular, each binary variable corresponds to a Boolean variable, each term in the objective function corresponds to a soft clause, and each constraint corresponds to an hard clause or a conjunction of hard clauses (see [40]).
+
+First, for $i \in V$, we associate a Boolean variable $y_{i}$ with each binary variable $x_{i}$, and its negation $\bar{y}_{i}$ with $1-x_{i}$.
+
+    \begin{itemize}
+      \item Each term $w_{i} x_{i}$ in the objective function of (IAP-compact) is represented by a soft clause $c=y_{i}$ (a unit disjunction) with weight $w_{i}$.
+      \item Each edge packing constraint $i i)$ is first represented as the equivalent edge covering constraint: $\left(1-x_{i}\right)+\left(1-x_{j}\right) \geq 1$, to which corresponds the clause
+    \end{itemize}
+
+\begin{equation*}
+\bar{y}_{i} \vee \bar{y}_{j} . \tag{3}
+\end{equation*}
+
+
+    \begin{itemize}
+      \item Each partitioning constraint $i$ ) is first transformed into the conjunction of a covering constraint $\sum_{i \in Q} x_{i} \geq 1$ and a packing constraint $\sum_{i \in Q} x_{i} \leq 1$. The covering constraint is immediately reduced into the clause $\bigvee_{i \in Q} y_{i}$. As for the packing constraint, we first replace it by an equivalent conjunction of a set of edge packing constraints: $x_{i}+x_{j} \leq 1$, for $i, j \in Q, i \neq j$. Then, as for the constraint $i i)$, each edge packing constraint is transformed into the clause (3).
+    \end{itemize}
+There are, in general, multiple ways of converting various types of constraints into clause form, with different trade-offs (see [42]). Especially for the at-most-one constraint and its generalization, at-most- $k$, many different algorithms and techniques have been studied. The pairwise encoding (3) is presented here for simplicity, but any of the alternative at-most-one encodings can be used (see [43]).
+
+\section*{4. The algorithmic framework}
+In the following, we describe our implementation of the Step 1, Step 2, and Step 3 of the DDD paradigm, exploiting the definition of the IAP that we gave in the previous section.
+
+We propose an algorithm, named DDD-TRP, that iteratively solves a IAP instance $D_{k}$ defined on a partition set $\Lambda_{k}=\left\{\Lambda_{k}^{i r}: i \in I, r \in R_{i}\right\}$. Then, we prove that the DDD-TRP terminates after a finite number of steps, returning the optimal solution of the original TRP.
+
+Note that, for each iteration $k$, the set $\Lambda_{k}$ is always more refined with respect to the partition set $\Lambda_{k-1}$ defined at the previous iteration.
+
+We can also associate with each set of partitions $\Lambda_{k}$ a IAP graph $G_{k}\left(V_{k}, E_{k}\right)$. In particular, we have that $V_{k}:=\bigcup_{i \in I, r \in R_{i}} \Lambda_{k}^{i r}$, with $\Lambda_{k}^{i r}=\left\{\lambda_{1}^{i r}, \lambda_{2}^{i r}, \ldots, \lambda_{n^{i r}}^{i r}\right\}$, while the set $E_{k}$ contains an edge of the type $\left\{\lambda_{p}^{i r}, \lambda_{p^{\prime}}^{j q}\right\}$ for each incompatible couple of intervals in $\Lambda_{k}$ (with $i, j$ and $r, q$ not necessarily distinct).
+
+\subsection*{4.1. Initialize the DDD-TRP (Step 1)}
+We define the initial problem $D_{0}$ of the IAP by just considering, for each track segment used by each train, its feasibility interval $\lambda_{1}^{i r}=\left[\underline{t}^{i r}, M\right)$. Thus, we set $\Lambda_{0}=\left\{\Lambda_{k}^{i r}=\left\{\lambda_{1}^{i r}\right\}: i \in I, r \in R_{i}\right\}$.
+
+\subsection*{4.2. Solve the IAP (Step 2)}
+Observe that, for all $i \in I$ and $r \in R_{i}$, the set of nodes of $\Lambda_{k}^{i r} \in \Lambda_{k}$ defines a clique in the graph $G_{k}$. We denote such cliques as resource assignment cliques. Moreover, we can identify a second type of clique: given two consecutive track segments $r$ and $q$ traversed by a train $i$, such that $r \prec_{i} q$, for each $\lambda_{p}^{i r}$ in the considered partition $\Lambda_{k}$, we can write a single fixed precedence clique constraint defined by the rail path incompatibilities (see Definition 3) as follows:
+
+
+\begin{equation*}
+x_{p}^{i r}+\sum_{\lambda_{p^{\prime}}^{i q} \mid h_{p^{\prime}}^{i q}<h_{p}^{i r}+l^{r}} x_{p^{\prime}}^{i q} \leq 1 \quad i \in I, r, q \in R_{i} \text { with } r \prec_{i} q, \lambda_{p}^{i r} \in \Lambda_{k}^{i p} \tag{4}
+\end{equation*}
+
+
+One can visualize an example of fixed precedence clique in Figure 4a. Here all intervals of $\Lambda^{i q}$ highlighted in cyan belong to the clique defined by $\lambda_{p}^{i r}$.
+
+Resuming, the IAP $D_{k}$ associated with $\Lambda_{k}$, and solved at Step 2 of the DDD-TRP, reduces to find a minimum weighted set $S_{k}^{*}$ of the IAP graph $G_{k}$ that intersects:
+
+    \begin{itemize}
+      \item each resource assignment clique exactly once,
+      \item each fixed precedence clique at least once,
+      \item and each incompatible couple of intervals at least once.
+    \end{itemize}
+\subsection*{4.3. Refine the IAP (Step 3)}
+Let $\Lambda_{k}$ be the set of partitions defined at iteration $k$ of the DDD-TRP, $G_{k}$ be the corresponding IAP graph, and let $S_{k}^{*}$ be the optimal set of $G_{k}$ (i.e. the optimal solution of the IAP $D_{k}$ associated with $\Lambda_{k}$ ). Now, as already noticed, if $\tau_{k}^{*}=\Phi\left(S_{k}^{*}\right)$ is a feasible schedule then it defines an optimal solution to the TRP and we are done. So, assume $\tau_{k}^{*}$ is not feasible. This means that $S_{k}^{*}$ contains two intervals, say $\lambda_{p}^{i r}=\left[h_{p}^{i r}, h_{p+1}^{i r}\right)$ and $\lambda_{s}^{j q}=\left[h_{s}^{j q}, h_{s+1}^{j q}\right)$ that are compatible (since $S_{k}^{*}$ is $\Lambda_{k}$-feasible) but such that $t^{i r}=h_{p}^{i r}$ and $t^{j q}=h_{s}^{j q}$ violate either constraint ii) or constraint iii) of Definition 2. We consider separately the two cases.
+
+A train-rail path precedence is violated. In this case, $i=j$ and we can assume, w.l.o.g., that $r \prec_{i} q$. Since $t^{i r}$ and $t^{i q}$ violate a train-rail path precedence, then $t^{i r}+l^{r}>t^{i q}$. Moreover, as $\lambda_{p}^{i r}$ and $\lambda_{s}^{i q}$ are compatible in $S_{k}^{*}$, then $t^{i r}+l^{r}< h_{s+1}^{i q}$. Therefore, we construct $\Lambda_{k+1}$ from $\Lambda_{k}$ (and then $G_{k+1}$ from $G_{k}$ ) by replacing the interval $\lambda_{s}^{i q}$ with the two smaller intervals $\lambda_{s^{\prime}}^{i q}=\left[h_{s}^{i q}, t^{i r}+l^{r}\right)$ and $\lambda_{s^{\prime \prime}}^{i q}=\left[t^{i r}+l^{r}, h_{s+1}^{i q}\right)$.
+
+Observe that, in $\Lambda_{k+1}$, the intervals $\lambda_{p}^{i r}$ and $\lambda_{s^{\prime}}^{i q}$ are incompatible and, as a consequence, the optimal set $S_{k+1}^{*}$ (hence the optimal schedule $\tau_{k+1}^{*}$ ) that will be calculated at the next iteration of the DDD-TRP cannot contain both $\lambda_{p}^{i r}$ and $\lambda_{s^{\prime}}^{i q}\left(t^{i r}=h_{p}^{i r}\right.$ and $\left.t^{i q}=h_{s}^{i q}\right)$. This is equivalent to adding a vertex for the new interval $\lambda_{s^{\prime \prime}}^{i q}$ and an edge $\left\{\lambda_{p}^{i r}, \lambda_{s^{\prime}}^{i q}\right\}$ in the set $E_{k+1}$. In other words, we are inserting a term $x_{s^{\prime}}^{i q}$ to the fixed precedence clique associated to $x_{p}^{i r}$. Concurrently, we also add a new fixed precedence clique relative to the interval $\lambda_{s^{\prime \prime}}^{i q}$ itself. Figure 5 shows how, starting from a violated train-rail path precedence (Figure 5a), new intervals $\lambda_{s^{\prime}}^{i q}$ and $\lambda_{s^{\prime \prime}}^{i q}$ are generated (Figure 5b).
+
+A disjunctive precedence is violated. In this case, we have that $i \neq j, t^{j q}< t^{i r}+l^{r q}$ and $t^{i r}<t^{j q}+l^{q r}$. Since $\lambda_{p}^{i r}$ and $\lambda_{s}^{j q}$ are compatible in $S_{k}^{*}$, we have that $t^{i r}+l^{r q}<h_{s+1}^{j q}$ and $t^{j q}+l^{q r}<h_{p+1}^{i r}$. We obtain $\Lambda_{k+1}$ from $\Lambda_{k}$ by breaking $\lambda_{p}^{i r}$ into $\lambda_{p^{\prime}}^{i r}=\left[h_{p}^{i r}, t^{j q}+l_{q r}^{j q}\right)$ and $\lambda_{p^{\prime \prime}}^{i r}=\left[t^{j q}+l_{q r}^{j q}, h_{p+1}^{i r}\right)$, and $\lambda_{s}^{j q}$ into $\lambda_{s^{\prime}}^{j q}=\left[h_{s}^{j q}, t^{i r}+l^{r q}\right)$ and $\lambda_{s^{\prime \prime}}^{j q}=\left[t^{i r}+l^{r q}, h_{s+1}^{j q}\right)$.
+\captionsetup{singlelinecheck=false}
+\begin{figure}[h]
+\begin{center}
+  \includegraphics[max width=\textwidth]{38f2a264-1b17-458c-b108-4a432cf1b9e2-21}
+\captionsetup{labelformat=empty}
+\caption{Figure 5: Example of resolution of a violated train-rail path precedence at Step 3 of the DDD-TRP.}
+\end{center}
+\end{figure}
+
+Again here, we observe that the newly generated intervals $\lambda_{p^{\prime}}^{i r}$ and $\lambda_{s^{\prime}}^{j q}$ are now incompatible. This implies adding an edge $\left\{\lambda_{p^{\prime}}^{i r}, \lambda_{s^{\prime}}^{j q}\right\}$ to $E_{k+1}$ since $\tau_{k+1}^{*}= \Phi\left(S_{k+1}^{*}\right)$ cannot contain the couple ( $t^{i r}=h_{p}^{i r}, t^{j q}=h_{s}^{j q}$ ). Also, note that other conflicts and rail path incompatibilities may be generated by the definition of the new intervals. Consequently, the new incompatibilities should be added to the set $E_{k+1}$. In Figure 6 we visually present the generation of the new intervals.
+
+In both cases, once a new interval is defined, we can propagate the new time points discovered along the train rail path to ensure a time consistency with the intervals belonging to subsequent train track segments. With some abuse of notation in the following, given a track segment $r$ traversed by a train $i$, we indicate the subsequent track segment on the rail path of $i$ with the index ( $r+1$ ). Then, said $\lambda_{p}^{i r}=\left[h_{p}^{i r}, h_{p+1}^{i r}\right)$ a newly generated interval and $\lambda_{s}^{i(r+1)}=\left[h_{s}^{i(r+1)}, h_{s+1}^{i(r+1)}\right)=\max \left\{\Lambda_{k}^{i(r+1)} \ni \lambda_{s}^{i(r+1)}: h_{s}^{i(r+1)}<h_{p}^{i r}+l^{r}\right\}$, we define two new intervals of the type $\lambda_{s^{\prime}}^{i(r+1)}=\left[h_{s}^{i(r+1)}, h_{p}^{i r}+l^{r}\right)$ and $\lambda_{s^{\prime \prime}}^{i(r+1)}=\left[h_{p}^{i r}+l^{r}, h_{s+1}^{i(r+1)}\right)$. This procedure allows us to identify a lower bound $h_{s^{\prime \prime}}^{i(r+1)}$ for $(r+1)$ that avoids the violation of the rail path constraints.
+
+\begin{figure}[h]
+\begin{center}
+  \includegraphics[max width=\textwidth]{38f2a264-1b17-458c-b108-4a432cf1b9e2-22}
+\captionsetup{labelformat=empty}
+\caption{Figure 6: Example of resolution of a violated disjunctive precedence at Step 3 of the DDD-TRP.}
+\end{center}
+\end{figure}
+
+The propagation is thus recursively applied on $\lambda_{s^{\prime}}^{i(r+1)}$ until the final destination track segment is reached. Along with the creation of these intervals, we need to add every rail path and/or conflict incompatibility arising between the intervals in $\Lambda_{k+1}$.
+
+Summarizing, said $G_{k}\left(V_{k}, E_{k}\right)$ the IAP graph at a generic iteration $k$, the DDD-TRP follows the steps reported below. Note that, since we apply a rail path time consistency each time we propagate a new interval, the feasibility check on the associated schedule $\tau_{k}^{*}$ can be limited to the disjunctive constraints.
+
+\section*{DDD-TRP $k$-th iteration}
+Data: Graph $G_{k}\left(V_{k}:=\Lambda_{k}, E_{k}\right)$, functions $\Phi(S): \Lambda_{k} \rightarrow \mathbb{R}_{+}$and $\bar{c}(S): \Lambda_{k} \rightarrow \mathbb{R}_{+}$.
+
+\section*{Solve the IAP (Step 2)}
+Find $S_{k}^{*}$ on $G_{k}\left(V_{k}, E_{k}\right)$ and compute $\tau_{k}^{*}=\Phi\left(S^{*}\right)$
+
+\section*{Check for solution optimality}
+For each $i, j \in I, i \neq j$, and $r \in R_{i}, q \in R_{j}$ with $\{r, q\} \in \mathcal{D}$ If $t^{i r}, t^{j q} \in \tau_{k}^{*}$ violate a disjunctive precedence (Definition 2.iii) Then\\
+(i) from $\lambda_{p}^{i r} \in S_{k}^{*}$ define $\lambda_{p^{\prime}}^{i r}=\left[h_{p}^{i r}, t^{j q}+l_{q r}^{j q}\right)$ and $\lambda_{p^{\prime \prime}}^{i r}= \left[t^{j q}+l_{q r}^{j q}, h_{p+1}^{i r}\right)$, set $\Lambda_{k}^{i r}=\Lambda_{k}^{i r} \backslash\left\{\lambda_{p}^{i r}\right\} \cup\left\{\lambda_{p^{\prime}}^{i r}, \lambda_{p^{\prime \prime}}^{i r}\right\} ;$\\
+(ii) from $\lambda_{s}^{j q} \in S_{k}^{*}$ define $\lambda_{s^{\prime}}^{j q}=\left[h_{s}^{j q}, t^{i r}+l^{r q}\right)$ and $\lambda_{s^{\prime \prime}}^{j q}= \left[t^{i r}+l^{r q}, h_{s+1}^{j q}\right)$, set $\Lambda_{k}^{j q}=\Lambda_{k}^{j q} \backslash\left\{\lambda_{s}^{j q}\right\} \cup\left\{\lambda_{s^{\prime}}^{j q}, \lambda_{s^{\prime \prime}}^{j q}\right\} ;$\\
+(iii) set $E_{k}=E_{k} \cup\left\{\lambda_{p^{\prime}}^{i r}, \lambda_{s^{\prime}}^{j q}\right\}$.
+
+If $\nexists$ violated disjunctive constraint Then\\
+Stop. $\tau^{*}=\tau_{k}^{*}$ with value $w\left(\tau^{*}\right)=\bar{c}\left(S_{k}^{*}\right)$.
+
+\section*{Refine the IAP (Step 3)}
+For each newly defined interval $\lambda_{p}^{i r}$\\
+(i) update resource assignment clique: for each $\lambda_{p^{\prime}}^{i r} \in \Lambda_{k}^{i r} \backslash \left\{\lambda_{p}^{i r}\right\}$ set $E_{k}=E_{k} \cup\left\{\lambda_{p}^{i r}, \lambda_{p^{\prime}}^{i r}\right\} ;$\\
+(ii) update fixed precedence clique (Definition 3): for each $\lambda_{s}^{i q} \in \Lambda_{k}^{i q}$ with $(q+1)=r$ such that $h_{s}^{i q}+l^{i q}>h_{p+1}^{i r}$ add a new edge $\left\{\lambda_{p}^{i r}, \lambda_{s}^{i q}\right\}$ to $E_{k}$;\\
+(iii) update conflict incompatibility (Definition 4): for each $\lambda_{s}^{i q} \in \Lambda_{k}^{i q}$ with $i \neq j,\{r, q\} \in \mathcal{D}$, such that $h_{p+1}^{i r}<h_{p^{\prime}}^{j q}+l^{q r}$ and $h_{p^{\prime}+1}^{j q}<h_{p}^{i r}+l^{r q}$ add a new edge $\left\{\lambda_{p}^{i r}, \lambda_{s}^{j q}\right\}$ to $E_{k}$;\\
+(iv) propagate along the train rail path: if exists $(r+1) \in R_{i}$, let $\lambda_{s}^{i(r+1)}=\max \left\{\Lambda_{k}^{i(r+1)} \ni \lambda_{s}^{i(r+1)} \mid h_{s}^{i(r+1)}<\right. \left.h_{p}^{i r}+l^{r}\right\}$, define $\lambda_{s^{\prime}}^{i(r+1)}=\left[h_{s}^{i(r+1)}, h_{p}^{i r}+l^{r}\right)$ and $\lambda_{s^{\prime \prime}}^{i(r+1)}= \left[h_{p}^{i r}+l^{r}, h_{s+1}^{i(r+1)}\right)$, set $\Lambda_{k}^{i(r+1)}=\Lambda_{k}^{i(r+1)} \backslash\left\{\lambda_{s}^{i(r+1)}\right\} \cup \left\{\lambda_{s^{\prime}}^{i(r+1)}, \lambda_{s^{\prime \prime}}^{i(r+1)}\right\}$.\\
+Set $V_{k+1}=V_{k}$ and $E_{k+1}=E_{k}$\\
+$k=k+1$
+
+\subsection*{4.4. Convergence of the algorithm}
+We now show that the DDD-TRP converges to the optimal solution in a finite number of steps. We remark that our approach to solve the TRP can be also seen as a primal-dual procedure with both row and column generations. At each iteration $k$ a restricted relaxation of the basic problem is solved, if the solution cannot be converted into a feasible solution for the original formulation (at least) a row is added to the constraints groups and (at least) a new variable is generated and added to the problem $D_{k+1}$. Otherwise, Lemma 1 ensures that a solution of the same value can be obtained for the TRP. In particular, we prove the following:
+
+Theorem 2. The DDD-TRP terminates providing the optimal solution of the TRP or proving that the problem is infeasible.
+
+Proof. Lemma 1 shows that at each iteration $k$ of the DDD-TRP, the value of the optimal solution $S_{k}^{*}$ defines a lower bound on the value of the optimal solution of the TRP. At the first iteration of the algorithm, each partition $\Lambda^{i r}$ is defined by one interval (see Section 4.1). As shown in Section 4.3, at each iteration $k$, we add at least one interval to the current set $\Lambda_{k}$. Then, Observation 1 implies that, after at most $\sum_{i \in I}\left|R_{i}\right| M$ iterations, the DDD-TRP terminates either providing the optimal solution for the TRP or proving that the problem is infeasible.
+
+\section*{5. Computational experiments}
+In this section we report the results of the computational experiments conducted to assess the performance of the DDD approach in the train rescheduling context and compare it with the main alternative competitor, the Big- $M$ approach. For a complete description of this approach, we refer the reader to [44]. The full Big- M model is also reported in the Appendix A. In [44] (and in these experiments) the Big- $M$ model is solved by row generation. In particular, once the current model is solved and a tentative schedule is generated, we check if it contains conflicts. If this is the case, specific conflict elimination constraints are added to the model, and the process iterates until a conflict-free schedule is generated. We solve the DDD-TRP using both a MILP solver and a MaxSAT solver to compare their effectiveness.
+
+The test set consists of 24 real-life instances derived from two single-track railroad networks, later named Line $A$ and Line $B$, of the Norwegian railway.
+
+The network is small enough that all algorithms can be used to solve all the 24 instances. We created an additional 48 test instances by modifying the original 24 instances to make them more difficult. The results on these harder instances give an indication of the computational performance in situations that may occur in practice, though rarely.
+
+\subsection*{5.1. Instances}
+The instances considered refer to portions of a physical railway network infrastructure composed by stations and tracks. A set of trains with different speed classes traverses the network. For each of them we are given a desired timetable. At a given instant in time, the state of the network is provided by means of the current position of all trains and their deviations from the scheduled departure times. Note that when taking a snapshot of the network at a particular instant, a train may be on time, i.e. its arrival and departure times adhere to the timetable schedule, or it may be affected by a delay. Besides, a train can be either positioned at a station (i.e. in station) or on an open line track (i.e. in connection). In the second case, the delay refers to the time at which the train entered the last track segment traversed, i.e. the one it is occupying at that moment. We do not consider the possibility of accelerating or decelerating the rolling stock, therefore we consider the train speeds, and consequently the train travel time, as fixed.
+
+Line A is a 124 km long line for passenger trains and includes 30 stations and 33 track segments. The A -instances present on average a set of 20 trains with an average of 19 track segments each. Line B is smaller ( 115 km , 20 stations and 25 tracks) and is crossed by commuters and freight trains. The B-instances present, on average, 11 trains and 15 track segments for each scheduled path. See Table C. 1 in Appendix C for more details about the original 24 test instances. We emphasize that, since the instances of Line A include in most of the cases more trains than those belonging to Line B, the number of potential conflicting track segments can be significantly higher for them, thus they will produce more complex models.
+
+The snapshots were extracted from the real-time train information system of the Norwegian railway. Most of the time, most of the trains are running on time, which makes the re-scheduling problem easy: simply follow the prescribed timetable. So, a random sampling of snapshots would not be an interesting benchmark. Online train re-scheduling optimization systems will have both harder challenges and more value to the dispatchers when many trains have large delays. When large delays happen, there are many\\
+more possible trade-offs to make between delays on different trains, and the optimization search tree becomes much larger. To simulate a more difficult setting, we first modified all 24 instances to have a mandatory dwelling time in the station equal to the timetable dwelling time. This removes the possibility for trains to catch up their delay by shorter dwelling times. Secondly, we created a third set of 24 instances with increased running time for traveling from one station to the next, without adjusting the timetable accordingly, to simulate slow-downs. Such slow-downs may for example be caused by signalling equipment faults. The problem instances are available online (see \href{https://github.com/luteberget/maxsattrainscheduling}{https://github.com/luteberget/maxsattrainscheduling}).
+
+In the following, we will refer to the instances with the notation $\mathcal{I}_{n}^{l}$, where by $l \in\{A O, B O, A S, B S, A T, B T\}$ we denote the line (A,B) to which they belong, whether they are the original instance ( O ), have extra time added to stations (S) or tracks (T), and by the subscript $n \in\{1, \ldots, 12\}$ we indicate the instance number.
+
+Objective functions. We ran the computational experiments using the objective functions defined in Section 2. In order to model the three functions, in the Big- $M$ formulation we introduced one continuous variable and one linear inequality for each $t^{i f}$ (Linear continuous), one integer variable and one linear inequality for each $t^{i f}$ (Linear rounded), and one binary variable per step (Stepwise).
+
+The DDD-TRP implements each of these cost functions by simply evaluating them for each new binary variable that is added to the problem, and adding the corresponding objective component for the binary variable.
+
+\subsection*{5.2. Computational results}
+We use an x64 Intel Core i7-7700HQ CPU with 32 GB of RAM running Windows 10. The algorithms are implemented (see \href{https://github.com/}{https://github.com/} luteberget/maxsattrainscheduling) in Rust and uses Gurobi v9.5.0 to solve the Big- $M$ and IAP models, and the RC2 algorithm [31] (with MiniSat v2.1.0 as the SAT backend) to solve MaxSAT problems. Both solvers were run with their default settings (note that this means that MiniSat runs singlethreaded while Gurobi is able to make use of 4 processor cores). A timeout of 2 minutes was used. We highlight that all algorithms work by iteratively removing conflicts (infeasibilty) while increasing the lower bound. This also means that, when they time out, neither of the algorithms have produced any feasible (conflict-free) solution.
+
+In our experiments, we observe that the number of iterations and the number of solved conflicts can vary significantly from instance to instance. Both these indicators affect the overall solution time. In fact, at each iteration $k$, a new IAP has to be solved and its complexity grows with the number of nodes and edges defined in $G_{k}$. We observe that the DDD-TRP solved with a MaxSAT approach requires an higher number of iterations before it finishes. This can be explained by two causes: first, the number includes both refinements of the IAP graph $G_{k}$ (when the SAT solver finds a feasible solution), and refinements of the objective function (when the SAT solver reports an infeasible problem), due to how the RC2 algorithm works. Secondly, we implemented only the least amount of refinement of the graph $G_{k}$ required, omitting step 3-(iv) of DDD-TRP. Because the SAT solver handles incremental additions to its problem instance well, we believe this to give only a negligible performance impact (over including step 3-(iv)). Both the SAT and MILP versions of the DDD-TRP spend most of their time in the solving phase and only a very small fraction of time ( $<3 \%$ ) on building, conflicts checking and refining of the IAPs.
+
+See Tables C.2-C. 4 in Appendix C for computational results on the three algorithms for each of the objective types - linear continuous, linear rounded, and stepwise - respectively.
+
+Linear continuous objective. Looking at the Big- $M$ formulation performance when using the linear objective, we can see how use a MaxSAT solver for the DDD-TRP is not a successful approach (see Table C.2). We believe this to be a general weakness with exact weighted MaxSAT based directly on standard SAT solvers, because such algorithms (including RC2) work by finding logical conflicts between subsets of components of the objective and creating cardinality constraints (linear constraints), which are costly to translate into SAT. When weights vary a lot, such as a cost of 1 second delay for one train in conflict with a delay of 10 minutes for another train, or when conflicts span over a large subset of the objective components, representing this trade-off exactly as SAT constraints is computationally expensive. Such detailed numerical structures, on the other hand, seem to be handled better by the MILP solver, which, however, turns out to be much slower: the MaxSAT solver reaches a timeout of two minutes for 15 instances, while the MILP solver is able to find a solution for three of them; nevertheless, the MaxSAT solver is on average 20 times faster than the MILP solver for 57 instances.
+
+\begin{table}[h]
+\begin{center}
+\captionsetup{labelformat=empty}
+\caption{Table 1: Comparison of the computation times (in milliseconds) obtained by the the Big$M$, MILP and MaxSAT approaches on the 10 hardest instances in our set}
+\begin{tabular}{|l|l|l|l|l|l|}
+\hline
+\multirow[b]{2}{*}{Instance} & \multicolumn{3}{|c|}{Time (ms)} & \multicolumn{2}{|c|}{Speed-up} \\
+\hline
+ & Big- $M$ & MILP & MaxSAT & Big- $M$ & MILP \\
+\hline
+$\mathcal{I}_{12}^{A S}$ & 2624 & T/O & 553 & 4.7x & - \\
+\hline
+$\mathcal{I}_{11}^{A T}$ & 1574 & T/O & 300 & 5.2x & - \\
+\hline
+$\mathcal{I}_{8}^{\text {AS }}$ & 1594 & T/O & 186 & 8.6x & - \\
+\hline
+$\mathcal{I}_{12}^{A T}$ & 1451 & T/O & 285 & 5.1x & - \\
+\hline
+$\mathcal{I}_{1}^{A S}$ & 1086 & T/O & 249 & 4.4x & - \\
+\hline
+$\mathcal{I}_{11}^{A S}$ & 917 & T/O & 419 & 2.2x & - \\
+\hline
+$\mathcal{I}_{2}^{\text {AS }}$ & 596 & T/O & 78 & 7.6x & - \\
+\hline
+$\mathcal{I}_{8}^{A T}$ & 930 & 99960 & 181 & 5.1x & 553.5x \\
+\hline
+$\mathcal{I}_{1}^{A T}$ & 367 & 14738 & 86 & 4.3x & 171.4x \\
+\hline
+$\mathcal{I}_{2}^{\text {AT }}$ & 272 & 3863 & 63 & 4.3x & 61.0x \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+Linear rounded objective. On the other hand, when we change the objective function to the stepwise and linear rounded forms, the picture changes completely in favor of the DDD-TRP. The results for the linear rounded objective function show that all of the problem instances that could be solved by Big- $M$ were also solved by DDD-TRP with the MaxSAT approach ( 68 out of 72 instances), typically between 2x and 10x faster (see Table C.3). We also see that the MILP solver reaches the timeout for 10 instances and is always the slowest approach.
+
+Stepwise objective. Table 1 reports for the stepwise function a comparison of the computation times (in milliseconds) obtained by the the Big-M, MILP and MaxSAT approaches on the 10 hardest instances in our set.
+
+For the stepwise objective function (see also Table C. 4 for all details), the computation times are much lower in general, and all the instances were brought below the timeout threshold for both the Big- $M$ and MaxSAT approaches, whereas the MILP solver reaches timeout for seven instances. The MaxSAT DDD-TRP is faster than Big- $M$ by $3 \mathrm{x}-10 \mathrm{x}$ on all instances, and also outperforms the MILP solver on all instances.
+
+\subsection*{5.3. Discussion}
+We see that rounding the objective function (i.e., changing from the linear continuous objective to the linear rounded objective) does not do significant changes to the performance of the Big- $M$ formulation, but makes a large difference to the DDD-TRP. On the other hand, the stepwise function makes all instances faster for all algorithms. We believe that this is due to the upper bound on the cost of every single train, making very congested situations resolvable by effectively parking a train at a station for a longer time.
+
+The fact that the stepwise function makes such a difference in computation times suggests a way to extend the DDD-TRP to a primal-dual approach where the objective function is gradually extended from a single step to the full linear rounded objective. Simple step function objectives can be solved much faster, and can provide feasible train schedules in case the exact optimal solution takes too long to compute in a real-time setting. The model resolution speed is crucial when applied to the dynamic solution of train dispatching problems. In this case, a new instance is generated from the field every ten seconds or so [2]. Typically instances only slightly change over time; therefore, one can massage the last instance generated at the previous resolution process and hope to produce only a few new intervals. In [45] one can observe that this approach proved to be successful when extending the Path\&Cycle formulation to cope with dynamic instances of the TRP.
+
+\section*{6. Conclusions and future work}
+This paper demonstrates how the dynamic discretization paradigm can be adapted to make TI formulations competitive with the Big-M formulations in the train dispatching field. When the objective function is piecewise constant, our approach out-performs the Big- $M$ formulation on all the problem instances in our set of real-world models and data.
+
+We achieved better performance using a MaxSAT solver instead of a MILP solver; we believe this is due to the way that SAT solvers are able to solve a sequence of incrementally constructed problem instances very efficiently. Indeed, this is crucial for many, if not most, industrial applications of SAT solvers (see [46]). Our DDD-TRP represents the first application of MaxSAT to train re-scheduling (some work has been done on periodic railway timetabling, see [47]). Going forward, we would like to investigate in more detail how MILP solvers are affected by small, incremental changes in\\
+the problem instance, and see if there is a way to make MILP solvers work efficiently with the DDD-TRP.
+
+It follows a very natural road map for future studies and developments. First, adapt the approach to handle dynamic problems and re-optimization. Actually, the refinement of the interval between an iteration and the next can be seen as a decomposition, so one can ask how to fit previously generated resolution cuts to new partial models. Also, fixed variable values retrieved in the preprocessing (solving) phase (or previously calculated bounds) can be exploited for those elements that are not directly "involved" in the conflicts solved at a generic iteration $k$. Second, develop techniques to limit the generation of intervals at each iteration. In fact, it can be shown that only a small subset of the intervals defined for the last IAP solved is actually sufficient to find an overall feasible (and thus optimal) solution. Third, it is possible to speed up the algorithm by selecting different and/or multiple time points in the intervals. Currently, we obtain the optimal solution by assigning each interval its lower end, but we can also make different choices and obtain a faster yet feasible solution. Fourth, the described methodology applies to every job-shop scheduling problem, so it is logical to extend it to cope with other contexts, such as industrial production or project scheduling.
+
+\section*{Data Availability Statement}
+The authors confirm that the data supporting the findings of this study are available within the article and its supplementary materials. The data do not violate the protection of human subjects, or other valid ethical, privacy, or security concerns.
+
+\section*{Disclosure statement}
+The authors report there are no competing interests to declare.
+
+\section*{References}
+[1] V. Cacchiani, P. Toth, Robust train timetabling, in: Handbook of Optimization in the Railway Industry, Springer, 2018, pp. 93-115.\\[0pt]
+[2] L. Lamorgese, C. Mannino, D. Pacciarelli, J. T. Krasemann, Train dispatching, Handbook of Optimization in the Railway Industry (2018) 265-283.
+
+\end{document}

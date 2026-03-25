@@ -1,0 +1,9 @@
+docs/*.out
+docs/*.aux
+docs/*.synctex.gz
+docs/*.log
+docs/*.fls
+docs/*.fdb_latexmk
+docs/*.bbl
+docs/*.toc
+.DS_Store
