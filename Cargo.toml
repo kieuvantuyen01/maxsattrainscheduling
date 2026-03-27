@@ -28,4 +28,5 @@ ipamir-rs = { version = "0.1.0", path = "../ipamir-rs" }
 #highs-sys = "1.2"
 
 [features]
+default = ["solver_rustsat_glucose"]
 solver_rustsat_glucose = ["rustsat", "rustsat-glucose"]
