@@ -1,4 +1,4 @@
-use std::{any::Any, cell::RefCell, collections::HashSet, fmt::Write};
+use std::{any::Any, cell::RefCell, collections::HashSet, fmt::Write, time::Instant};
 
 use ddd::{
     maxsatsolver, parser,
@@ -71,7 +71,7 @@ struct Opt {
     #[structopt(long)]
     maxsatddd_ladder_scl_use_interval_tree: Option<bool>,
 
-    /// Objective encoding for `sat_ddd*` solvers: `scpb` or `totalizer` (`nsc` accepted as alias).
+    /// Objective encoding for `sat_ddd*` solvers: `scpb`, `totalizer`, or `bit_totalizer` (`nsc` accepted as alias).
     #[structopt(long)]
     satddd_objective_encoding: Option<String>,
 }
@@ -110,6 +110,9 @@ fn parse_sat_objective_encoding(value: &str) -> Option<ddd_solvers::sat::SatObje
         "totalizer" | "incremental_totalizer" | "inc_totalizer" => {
             Some(ddd_solvers::sat::SatObjectiveEncoding::IncrementalTotalizer)
         }
+        "bit_totalizer" | "binary_totalizer" | "bit" | "binary" => {
+            Some(ddd_solvers::sat::SatObjectiveEncoding::BitTotalizer)
+        }
         _ => None,
     }
 }
@@ -117,7 +120,7 @@ fn parse_sat_objective_encoding(value: &str) -> Option<ddd_solvers::sat::SatObje
 fn parse_sat_objective_encoding_or_panic(value: &str) -> ddd_solvers::sat::SatObjectiveEncoding {
     parse_sat_objective_encoding(value).unwrap_or_else(|| {
         panic!(
-            "Unknown SAT objective encoding '{}'. Supported: scpb, totalizer",
+            "Unknown SAT objective encoding '{}'. Supported: scpb, totalizer, bit_totalizer",
             value
         )
     })
@@ -459,6 +462,7 @@ fn main() {
 
         let mut solution = Result::Err(SolverError::NoSolution);
         for solver in solvers.iter() {
+            let solve_wall_start = Instant::now();
             hprof::start_frame();
             println!("Starting solver {:?}", solver);
             let mut solve_data = serde_json::Map::new();
@@ -883,6 +887,7 @@ fn main() {
                     }
                 };
             hprof::end_frame();
+            let sol_time = solve_wall_start.elapsed().as_secs_f64() * 1000.0;
             let solver_name = format!("{:?}", solver);
             solve_data.insert("solver_name".to_string(), solver_name.clone().into());
             solve_data.insert(
@@ -903,13 +908,7 @@ fn main() {
                 Err(SolverError::GurobiError(_)) => "gurobi_error",
             };
             solve_data.insert("status".to_string(), solve_status.into());
-            if matches!(solution, Err(SolverError::Timeout)) && !solve_data.contains_key("sol_time")
-            {
-                if let Some(total_time_secs) = solve_data.get("total_time").and_then(|v| v.as_f64())
-                {
-                    solve_data.insert("sol_time".to_string(), (total_time_secs * 1000.0).into());
-                }
-            }
+            solve_data.insert("sol_time".to_string(), sol_time.into());
 
             let solve_stats = if let Ok(solution) = solution.as_ref() {
                 let cost = p
@@ -926,8 +925,6 @@ fn main() {
                 }
 
                 hprof::profiler().print_timing();
-                let _root = hprof::profiler().root();
-                let sol_time = hprof::profiler().root().total_time.get() as f64 / 1_000_000f64;
                 writeln!(
                     perf_out.borrow_mut(),
                     "{:>10} {:<25?} {:<12} {:>5} {:>10.0}",
@@ -938,8 +935,6 @@ fn main() {
                     sol_time,
                 )
                 .unwrap();
-
-                solve_data.insert("sol_time".to_string(), sol_time.into());
 
                 if let Some(other_cost) = other_cost {
                     writeln!(
