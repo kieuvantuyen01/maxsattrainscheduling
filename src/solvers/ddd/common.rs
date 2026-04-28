@@ -73,6 +73,15 @@ pub fn time_point(&mut self, solver: &mut impl SatInstance<L>, t: i32) -> (Bool<
         let var = solver.new_var();
         self.delays.insert(idx, (var, t));
 
+        // Keep `incumbent_idx` pointing to the same logical timepoint after
+        // insertion. If we inserted at or before the incumbent's array slot,
+        // the old incumbent shifted forward by one — compensate so callers
+        // reading `incumbent_time()` or `delays[incumbent_idx]` still see
+        // the same data they had before this call.
+        if idx <= self.incumbent_idx {
+            self.incumbent_idx += 1;
+        }
+
         if idx > 0 {
             solver.add_clause(vec![!var, self.delays[idx - 1].0]);
         }

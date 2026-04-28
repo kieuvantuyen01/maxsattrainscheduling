@@ -1,6 +1,6 @@
 use std::{
     cell::RefCell,
-    collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
     sync::mpsc,
     time::{Duration, Instant},
 };
@@ -8,7 +8,7 @@ use std::{
 use crate::{
     debug::{DebugInfo, ResourceInterval, SolverAction},
     problem::{DelayCostType, Problem},
-    solvers::heuristic,
+    solvers::{heuristic, value_trace::ValueTrace},
 };
 use rustsat::{
     encodings::{
@@ -62,7 +62,11 @@ pub enum SatSearchMode {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 struct ResourceCliqueRowKey {
-    members: Vec<(VisitId, i32)>,
+    // (visit_id, start, next_incumbent_time). Includes next_incumbent so that
+    // when the next-visit's incumbent shifts (changing the clique's min-end
+    // and thus the AMO's tau+1), the key changes and a fresh tight constraint
+    // is added. If state is unchanged, the existing AMO is still valid → skip.
+    members: Vec<(VisitId, i32, i32)>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1134,32 +1138,6 @@ fn compute_effective_earliest(problem: &Problem) -> Vec<Vec<i32>> {
     effective
 }
 
-fn current_interval_choice_lit<L: satcoder::Lit>(
-    solver: &mut impl SatInstance<L>,
-    occupations: &TiVec<VisitId, Occ<L>>,
-    cache: &mut HashMap<(VisitId, i32, i32), Bool<L>>,
-    visit_id: VisitId,
-) -> Bool<L> {
-    let occ = &occupations[visit_id];
-    let idx = occ.incumbent_idx;
-    let start_t = occ.delays[idx].1;
-    let next_t = occ.delays[idx + 1].1;
-
-    if let Some(&lit) = cache.get(&(visit_id, start_t, next_t)) {
-        return lit;
-    }
-
-    let in_lit = occ.delays[idx].0;
-    let next_lit = occ.delays[idx + 1].0;
-    let chosen_lit = solver.new_var();
-
-    solver.add_clause(vec![!chosen_lit, in_lit]);
-    solver.add_clause(vec![!chosen_lit, !next_lit]);
-    solver.add_clause(vec![chosen_lit, !in_lit, next_lit]);
-
-    cache.insert((visit_id, start_t, next_t), chosen_lit);
-    chosen_lit
-}
 
 fn add_sequential_amo<L: satcoder::Lit>(solver: &mut impl SatInstance<L>, lits: &[Bool<L>]) {
     match lits.len() {
@@ -1200,6 +1178,127 @@ fn add_hybrid_amo<L: satcoder::Lit>(solver: &mut impl SatInstance<L>, lits: &[Bo
     } else {
         add_sequential_amo(solver, lits);
     }
+}
+
+/// Monotone delay literal `visit_id.start ≥ t`.
+/// Returns `true.into()` if t ≤ earliest (always satisfied),
+/// `false.into()` if t ≥ infinity sentinel (never satisfied),
+/// otherwise creates the timepoint (if new) and returns its literal.
+fn get_delay_lit_at<L: satcoder::Lit>(
+    solver: &mut impl SatInstance<L>,
+    problem: &Problem,
+    visits: &TiVec<VisitId, (usize, usize)>,
+    occupations: &mut TiVec<VisitId, Occ<L>>,
+    new_time_points: &mut Vec<(VisitId, Bool<L>, i32)>,
+    fixed_prec_rows: &mut HashSet<(VisitId, i32)>,
+    prec: SatPrecEncoding,
+    visit_id: VisitId,
+    t: i32,
+) -> Bool<L> {
+    let (earliest_t, last_t) = {
+        let occ = &occupations[visit_id];
+        (occ.delays[0].1, occ.delays[occ.delays.len() - 1].1)
+    };
+    if t <= earliest_t {
+        return true.into();
+    }
+    if t >= last_t {
+        return false.into();
+    }
+    let (lit, is_new) = occupations[visit_id].time_point(solver, t);
+    if is_new {
+        new_time_points.push((visit_id, lit, t));
+        let _ = add_fixed_precedence_row(
+            solver,
+            problem,
+            visits,
+            occupations,
+            new_time_points,
+            fixed_prec_rows,
+            visit_id,
+            lit,
+            t,
+            prec,
+        );
+    }
+    lit
+}
+
+/// Build a sound "active at tau" aux variable via Tseitin:
+///   active_i = (start_i ≤ tau) ∧ (end_i > tau)
+///           = !delay_i(tau+1) ∧ delay_next_i(tau+1)
+/// For the last visit of a train (no next visit), end_i = start_i + travel,
+/// so `end_i > tau` ⟺ `start_i ≥ tau - travel + 1`, encoded as `delay_i(tau+1-travel)`.
+///
+/// Cached per (visit_id, tau+1) to avoid duplicate aux vars.
+fn build_active_lit<L: satcoder::Lit>(
+    solver: &mut impl SatInstance<L>,
+    problem: &Problem,
+    visits: &TiVec<VisitId, (usize, usize)>,
+    occupations: &mut TiVec<VisitId, Occ<L>>,
+    new_time_points: &mut Vec<(VisitId, Bool<L>, i32)>,
+    fixed_prec_rows: &mut HashSet<(VisitId, i32)>,
+    active_cache: &mut HashMap<(VisitId, i32), Bool<L>>,
+    prec: SatPrecEncoding,
+    visit_id: VisitId,
+    tau_plus_1: i32,
+) -> Bool<L> {
+    if let Some(&lit) = active_cache.get(&(visit_id, tau_plus_1)) {
+        return lit;
+    }
+
+    let (train_idx, visit_idx) = visits[visit_id];
+
+    let delay_start = get_delay_lit_at(
+        solver,
+        problem,
+        visits,
+        occupations,
+        new_time_points,
+        fixed_prec_rows,
+        prec,
+        visit_id,
+        tau_plus_1,
+    );
+
+    let delay_end = if visit_idx + 1 < problem.trains[train_idx].visits.len() {
+        let next_id: VisitId = (usize::from(visit_id) + 1).into();
+        get_delay_lit_at(
+            solver,
+            problem,
+            visits,
+            occupations,
+            new_time_points,
+            fixed_prec_rows,
+            prec,
+            next_id,
+            tau_plus_1,
+        )
+    } else {
+        let travel = problem.trains[train_idx].visits[visit_idx].travel_time;
+        get_delay_lit_at(
+            solver,
+            problem,
+            visits,
+            occupations,
+            new_time_points,
+            fixed_prec_rows,
+            prec,
+            visit_id,
+            tau_plus_1 - travel,
+        )
+    };
+
+    let active = solver.new_var();
+    // active → !delay_start
+    solver.add_clause(vec![!active, !delay_start]);
+    // active → delay_end
+    solver.add_clause(vec![!active, delay_end]);
+    // (!delay_start ∧ delay_end) → active
+    solver.add_clause(vec![active, delay_start, !delay_end]);
+
+    active_cache.insert((visit_id, tau_plus_1), active);
+    active
 }
 
 pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug>(
@@ -1325,6 +1424,19 @@ fn solve_native_debug_with_mode(
             resource_visits[visit.resource_id].push(visit_id);
             touched_intervals.push(visit_id);
             new_time_points.push((visit_id, true.into(), earliest));
+
+            const SEED_COST_THRESHOLDS: bool = true;
+            if SEED_COST_THRESHOLDS {
+                for t in problem.trains[train_idx]
+                    .visit_cost_threshold_times(delay_cost_type, visit_idx, earliest)
+                {
+                    let (var, is_new) = occupations[visit_id].time_point(&mut solver, t);
+                    if is_new {
+                        n_timepoints += 1;
+                        new_time_points.push((visit_id, var, t));
+                    }
+                }
+            }
         }
     }
 
@@ -1333,6 +1445,10 @@ fn solve_native_debug_with_mode(
     let mut upper_bound: Option<i32> = None;
     let use_cont_fixed_query = matches!(delay_cost_type, DelayCostType::Continuous);
     let mut cont_active_query_bound: Option<i32> = None;
+    let mut value_trace = ValueTrace::default();
+    let mut logged_incumbent: Option<i32> = None;
+    let mut logged_lower_bound: Option<i32> = None;
+    let trace_bound_queries = problem.name == "instances_original/InstanceA1.txt";
 
     let mut scpb_terms: Vec<(NativeLit, usize)> = Vec::new();
     let mut scpb_total_weight = 0usize;
@@ -1383,13 +1499,183 @@ fn solve_native_debug_with_mode(
         }
     }
 
+    // Seed pairwise AMO constraints for visit pairs whose earliest occupation
+    // intervals overlap. These conflicts are guaranteed at earliest — DDD would
+    // rediscover them in the first few iterations anyway. Seeding upfront lets
+    // SAT solver reason about them from iteration 1, often saving many DDD
+    // iterations on large instances where the LB-UB gap is tight.
+    //
+    // Per pair: build two `active_i(tau_plus_1)` aux vars (3 Tseitin clauses each)
+    // and add one AMO clause `!active_v1 OR !active_v2`. Total ≈ 7 clauses + 2
+    // aux vars per seeded pair. For typical instances this is ~5-20k extra
+    // clauses; SAT solver handles this easily in exchange for faster convergence.
+    const SEED_RESOURCE_CONFLICTS: bool = true;
+    // Only seed overlaps ≥ 180s — aligns with InfiniteSteps180 step boundaries.
+    // For finer objectives (cont, infsteps60), smaller conflicts may also matter;
+    // tune lower if benchmarks show more seeding helps.
+    const MIN_OVERLAP_FOR_SEED: i32 = 180;
+    if SEED_RESOURCE_CONFLICTS {
+        let mut seed_active_cache: HashMap<(VisitId, i32), Bool<NativeLit>> = HashMap::new();
+        let mut n_seeded = 0usize;
+        let mut seen_resource_pairs: HashSet<(usize, usize)> = HashSet::new();
+
+        // Helper: get earliest start + earliest end of a visit's occupation.
+        let earliest_occupation = |visit_id: VisitId,
+                                   occupations: &TiVec<VisitId, Occ<NativeLit>>|
+         -> (i32, i32) {
+            let (train_idx, visit_idx) = visits[visit_id];
+            let e_start = occupations[visit_id].delays[0].1;
+            let e_end = if visit_idx + 1 < problem.trains[train_idx].visits.len() {
+                let next_id: VisitId = (usize::from(visit_id) + 1).into();
+                occupations[next_id].delays[0].1
+            } else {
+                e_start + problem.trains[train_idx].visits[visit_idx].travel_time
+            };
+            (e_start, e_end)
+        };
+
+        let mut try_seed_pair =
+            |v1: VisitId,
+             v2: VisitId,
+             solver: &mut NativeSolver,
+             occupations: &mut TiVec<VisitId, Occ<NativeLit>>,
+             new_time_points: &mut Vec<(VisitId, Bool<NativeLit>, i32)>,
+             fixed_prec_rows: &mut HashSet<(VisitId, i32)>,
+             seed_active_cache: &mut HashMap<(VisitId, i32), Bool<NativeLit>>,
+             n_seeded: &mut usize| {
+                let (t1_idx, _) = visits[v1];
+                let (t2_idx, _) = visits[v2];
+                if t1_idx == t2_idx {
+                    return;
+                }
+
+                let (e1_start, e1_end) = earliest_occupation(v1, occupations);
+                let (e2_start, e2_end) = earliest_occupation(v2, occupations);
+
+                if e1_end <= e1_start || e2_end <= e2_start {
+                    return;
+                }
+
+                // Overlap at earliest: intervals [e1_start, e1_end) ∩ [e2_start, e2_end)
+                let overlap_start = e1_start.max(e2_start);
+                let overlap_end = e1_end.min(e2_end);
+                if overlap_start + MIN_OVERLAP_FOR_SEED > overlap_end {
+                    return;
+                }
+
+                // tau_plus_1 = min end — same as runtime AMO semantics.
+                let tau_plus_1 = overlap_end;
+
+                let active_v1 = build_active_lit(
+                    solver,
+                    problem,
+                    &visits,
+                    occupations,
+                    new_time_points,
+                    fixed_prec_rows,
+                    seed_active_cache,
+                    prec,
+                    v1,
+                    tau_plus_1,
+                );
+                let active_v2 = build_active_lit(
+                    solver,
+                    problem,
+                    &visits,
+                    occupations,
+                    new_time_points,
+                    fixed_prec_rows,
+                    seed_active_cache,
+                    prec,
+                    v2,
+                    tau_plus_1,
+                );
+
+                solver.add_clause(vec![!active_v1, !active_v2]);
+                *n_seeded += 1;
+            };
+
+        // Iterate over unique conflicting resource pairs.
+        let conflicts_snapshot: Vec<(usize, Vec<usize>)> = conflicts
+            .iter()
+            .map(|(k, v)| (*k, v.clone()))
+            .collect();
+        for (res_a, others) in &conflicts_snapshot {
+            for &res_b in others {
+                if *res_a > res_b {
+                    continue;
+                }
+                if !seen_resource_pairs.insert((*res_a, res_b)) {
+                    continue;
+                }
+                if *res_a >= resource_visits.len() || res_b >= resource_visits.len() {
+                    continue;
+                }
+
+                if *res_a == res_b {
+                    let visits_list = resource_visits[*res_a].clone();
+                    for i in 0..visits_list.len() {
+                        for j in (i + 1)..visits_list.len() {
+                            try_seed_pair(
+                                visits_list[i],
+                                visits_list[j],
+                                &mut solver,
+                                &mut occupations,
+                                &mut new_time_points,
+                                &mut fixed_prec_rows,
+                                &mut seed_active_cache,
+                                &mut n_seeded,
+                            );
+                        }
+                    }
+                } else {
+                    let visits_a = resource_visits[*res_a].clone();
+                    let visits_b = resource_visits[res_b].clone();
+                    for &v1 in &visits_a {
+                        for &v2 in &visits_b {
+                            try_seed_pair(
+                                v1,
+                                v2,
+                                &mut solver,
+                                &mut occupations,
+                                &mut new_time_points,
+                                &mut fixed_prec_rows,
+                                &mut seed_active_cache,
+                                &mut n_seeded,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        println!(
+            "SAT resource-conflict seeding: {} pairwise AMOs added",
+            n_seeded
+        );
+    }
+
     const USE_INITIAL_HEURISTIC_UB_ONLY: bool = true;
     if USE_INITIAL_HEURISTIC_UB_ONLY {
         if let Some((ub_cost, ub_sol)) =
             compute_initial_heuristic_upper_bound(&mk_env, problem, delay_cost_type, &occupations)?
         {
             println!("SAT initial heuristic UB={}", ub_cost);
+            if trace_bound_queries {
+                eprintln!(
+                    "[SAT-BOUND-TRACE] instance={} event=initial_heuristic_ub lb={} ub={} cost={} search={:?} mode={:?} encoding={:?}",
+                    problem.name,
+                    lower_bound,
+                    ub_cost,
+                    ub_cost,
+                    search,
+                    mode,
+                    encoding
+                );
+            }
             best_sol = Some((ub_cost, ub_sol));
+            value_trace.initial_incumbent(start_time, ub_cost, lower_bound, None);
+            logged_incumbent = Some(ub_cost);
             if search == SatSearchMode::UbSearch {
                 upper_bound = Some(ub_cost - 1);
             }
@@ -1408,6 +1694,8 @@ fn solve_native_debug_with_mode(
             let lb = lower_bound;
             println!("TIMEOUT LB={} UB={}", lb, ub);
 
+            value_trace.timeout(start_time, lb, best_sol.as_ref().map(|(c, _)| *c), Some(iteration as i32));
+            value_trace.emit(&mut output_stats, best_sol.as_ref().map(|(c, _)| *c));
             do_output_stats(
                 &mut output_stats,
                 iteration,
@@ -1462,7 +1750,7 @@ fn solve_native_debug_with_mode(
 
                         let in_var = v1.delays[v1.incumbent_idx].0;
                         let in_t = v1.incumbent_time();
-                        let _ = add_fixed_precedence_row(
+                        let added_prec = add_fixed_precedence_row(
                             &mut solver,
                             problem,
                             &visits,
@@ -1474,6 +1762,23 @@ fn solve_native_debug_with_mode(
                             in_t,
                             prec,
                         );
+                        if trace_bound_queries {
+                            if let Some((next_visit, _, req_t)) = added_prec {
+                                eprintln!(
+                                    "[SAT-BOUND-TRACE] instance={} event=precedence_row_add iter={} source=travel_conflict visit_id={} train_idx={} visit_idx={} in_t={} next_visit_id={} req_t={} fixed_prec_rows={} pending_new_time_points={}",
+                                    problem.name,
+                                    iteration,
+                                    visit_id.0,
+                                    train_idx,
+                                    visit_idx,
+                                    in_t,
+                                    next_visit.0,
+                                    req_t,
+                                    fixed_prec_rows.len(),
+                                    new_time_points.len()
+                                );
+                            }
+                        }
                         stats.n_travel += 1;
                     }
                 }
@@ -1493,7 +1798,8 @@ fn solve_native_debug_with_mode(
                 touched_positions.entry(visit_id).or_default().push(idx);
             }
 
-            let mut relevant_resource_pairs: HashSet<(usize, usize)> = HashSet::new();
+            // BTreeSet for deterministic iteration order across runs (reproducibility).
+            let mut relevant_resource_pairs: BTreeSet<(usize, usize)> = BTreeSet::new();
             for &visit_id in &touched_intervals {
                 let (train_idx, visit_idx) = visits[visit_id];
                 let resource = problem.trains[train_idx].visits[visit_idx].resource_id;
@@ -1509,8 +1815,16 @@ fn solve_native_debug_with_mode(
             }
 
             let mut retain_touched = vec![false; touched_intervals.len()];
-            let mut current_choice_lits: HashMap<(VisitId, i32, i32), Bool<NativeLit>> =
-                HashMap::new();
+            // Per-iteration cache: (visit_id, tau+1) → active literal.
+            // Reused across cliques in the same iteration to share aux vars.
+            let mut active_lit_cache: HashMap<(VisitId, i32), Bool<NativeLit>> = HashMap::new();
+
+            // Collect all clique candidates across resource pairs first, then
+            // process them in severity order with a per-iteration budget. This
+            // ensures the most critical conflicts are resolved first even when
+            // the budget is hit.
+            let mut clique_candidates: Vec<(i64, Vec<ActiveInterval>, i32, usize, usize)> =
+                Vec::new();
 
             for (resource_a, resource_b) in relevant_resource_pairs.into_iter() {
                 let mut group_intervals = Vec::new();
@@ -1580,80 +1894,184 @@ fn solve_native_debug_with_mode(
                         continue;
                     }
 
-                    let mut member_key: Vec<(VisitId, i32)> =
-                        members.iter().map(|m| (m.visit_id, m.start)).collect();
-                    member_key.sort_unstable_by_key(|(v, t)| (v.0, *t));
-                    let row_key = ResourceCliqueRowKey {
-                        members: member_key,
-                    };
-                    if !added_resource_clique_rows.insert(row_key) {
-                        continue;
-                    }
+                    // Severity = member_count * overlap_length. Prioritize large
+                    // cliques with long overlaps (most binding conflicts).
+                    let overlap_min_end = members.iter().map(|m| m.end).min().unwrap();
+                    let overlap_length = (overlap_min_end - tau).max(1) as i64;
+                    let severity = (members.len() as i64) * overlap_length;
 
+                    clique_candidates.push((
+                        severity,
+                        members,
+                        tau,
+                        resource_a,
+                        resource_b,
+                    ));
+                }
+            }
+
+            // Sort by severity descending — the most "dangerous" cliques (largest
+            // with longest overlaps) are processed first each iteration. This
+            // pushes the LB up faster and closes the LB-UB gap more aggressively.
+            clique_candidates.sort_by(|a, b| b.0.cmp(&a.0));
+
+            // Per-iteration budget: cap the number of cliques processed per SAT
+            // iteration. Prevents combinatorial blowup when many cliques are
+            // detected at once; remaining cliques will be re-detected and
+            // processed in subsequent iterations (smart dedup via
+            // `added_resource_clique_rows` prevents double-adding).
+            // Tuned higher to address combinatorial-explosion workloads like
+            // infsteps180 where DDD repeatedly finds equivalent-cost solutions.
+            // Adding more constraints per iter forces SAT to prove UNSAT faster.
+            const MAX_CLIQUES_PER_ITER: usize = 500;
+            let mut cliques_processed = 0usize;
+
+            for (severity, members, tau, resource_a, resource_b) in clique_candidates {
+                if cliques_processed >= MAX_CLIQUES_PER_ITER {
+                    // Signal that more work remains so DDD loop continues.
                     found_resource_conflict = true;
-                    stats.n_conflict += 1;
+                    break;
+                }
 
-                    for m in &members {
-                        if let Some(idxs) = touched_positions.get(&m.visit_id) {
-                            for &idx in idxs {
-                                retain_touched[idx] = true;
-                            }
+                let mut member_key: Vec<(VisitId, i32, i32)> = members
+                    .iter()
+                    .map(|m| {
+                        let (train_idx, visit_idx) = visits[m.visit_id];
+                        let next_incumbent =
+                            if visit_idx + 1 < problem.trains[train_idx].visits.len() {
+                                let next_id: VisitId =
+                                    (usize::from(m.visit_id) + 1).into();
+                                occupations[next_id].incumbent_time()
+                            } else {
+                                i32::MAX
+                            };
+                        (m.visit_id, m.start, next_incumbent)
+                    })
+                    .collect();
+                member_key.sort_unstable_by_key(|(v, t, _)| (v.0, *t));
+                let row_key = ResourceCliqueRowKey {
+                    members: member_key,
+                };
+                if !added_resource_clique_rows.insert(row_key) {
+                    continue;
+                }
+                if trace_bound_queries {
+                    let member_trace: Vec<(usize, usize, i32, i32)> = members
+                        .iter()
+                        .map(|m| (usize::from(m.visit_id), m.train_idx, m.start, m.end))
+                        .collect();
+                    eprintln!(
+                        "[SAT-BOUND-TRACE] instance={} event=resource_clique_add iter={} resources=({}, {}) tau={} severity={} members={:?} resource_rows={} fixed_prec_rows={}",
+                        problem.name,
+                        iteration,
+                        resource_a,
+                        resource_b,
+                        tau,
+                        severity,
+                        member_trace,
+                        added_resource_clique_rows.len(),
+                        fixed_prec_rows.len()
+                    );
+                }
+
+                found_resource_conflict = true;
+                stats.n_conflict += 1;
+
+                for m in &members {
+                    if let Some(idxs) = touched_positions.get(&m.visit_id) {
+                        for &idx in idxs {
+                            retain_touched[idx] = true;
                         }
                     }
+                }
 
-                    let refine_members: Vec<ActiveInterval> = members
-                        .iter()
-                        .copied()
-                        .filter(|m| touched_set.contains(&m.visit_id))
-                        .collect();
+                // Fast-path for 2-member cliques (common case in train scheduling):
+                // use direct pairwise monotone clause instead of Tseitin active_i
+                // aux vars + AMO. Saves 6 Tseitin clauses + 2 aux vars per clique.
+                // The clause is:
+                //   [!m_end_i, !m_end_j, delay_i_past_mj_end, delay_j_past_mi_end]
+                // Sound because all four literals are monotone and the semantics
+                // match the AMO version: if both occupations extend to their
+                // current ends, at least one must depart past the other's end.
+                //
+                // For cliques of size ≥ 3, fall through to the O(n) sequential
+                // AMO via Tseitin `active_i(tau)` aux vars (Phase 1 encoding),
+                // which scales better for large cliques.
+                if members.len() == 2 {
+                    let mi = members[0];
+                    let mj = members[1];
 
-                    for m in &refine_members {
-                        let Some(target_t) = members
-                            .iter()
-                            .filter(|other| {
-                                other.visit_id != m.visit_id
-                                    && other.train_idx != m.train_idx
-                                    && other.end > m.start
-                            })
-                            .map(|other| other.end)
-                            .min()
-                        else {
-                            continue;
-                        };
-
-                        let (delay_after, is_new) =
-                            occupations[m.visit_id].time_point(&mut solver, target_t);
-                        if is_new {
-                            new_time_points.push((m.visit_id, delay_after, target_t));
+                    // Capture m_end literals BEFORE timepoint creation (to keep
+                    // the literal values stable w.r.t. incumbent_idx shifts).
+                    let m_end_lit = |visit_id: VisitId,
+                                     occupations: &TiVec<VisitId, Occ<NativeLit>>|
+                     -> Bool<NativeLit> {
+                        let (train_idx, visit_idx) = visits[visit_id];
+                        if visit_idx + 1 < problem.trains[train_idx].visits.len() {
+                            let next_id: VisitId = (usize::from(visit_id) + 1).into();
+                            occupations[next_id].delays[occupations[next_id].incumbent_idx].0
+                        } else {
+                            true.into()
                         }
-                        let _ = add_fixed_precedence_row(
+                    };
+
+                    let m_end_i = m_end_lit(mi.visit_id, &occupations);
+                    let m_end_j = m_end_lit(mj.visit_id, &occupations);
+
+                    let delay_i = get_delay_lit_at(
+                        &mut solver,
+                        problem,
+                        &visits,
+                        &mut occupations,
+                        &mut new_time_points,
+                        &mut fixed_prec_rows,
+                        prec,
+                        mi.visit_id,
+                        mj.end,
+                    );
+                    let delay_j = get_delay_lit_at(
+                        &mut solver,
+                        problem,
+                        &visits,
+                        &mut occupations,
+                        &mut new_time_points,
+                        &mut fixed_prec_rows,
+                        prec,
+                        mj.visit_id,
+                        mi.end,
+                    );
+
+                    solver.add_clause(vec![!m_end_i, !m_end_j, delay_i, delay_j]);
+                } else {
+                    // Sound sequential AMO via Tseitin-encoded "active_i(tau)" aux vars.
+                    // Choose tau+1 = min(member.end) so the AMO forces at least all
+                    // but one member to start at or after this time. Uses monotone
+                    // delay literals that capture BOTH start and end constraints
+                    // (occupation overlap at tau) — no over-constraining issue of
+                    // choice literals which only capture start being in range.
+                    let tau_plus_1 = members.iter().map(|m| m.end).min().unwrap();
+
+                    let mut active_lits = Vec::with_capacity(members.len());
+                    for m in &members {
+                        let lit = build_active_lit(
                             &mut solver,
                             problem,
                             &visits,
                             &mut occupations,
                             &mut new_time_points,
                             &mut fixed_prec_rows,
-                            m.visit_id,
-                            delay_after,
-                            target_t,
+                            &mut active_lit_cache,
                             prec,
-                        );
-                    }
-
-                    let mut clique_lits = Vec::with_capacity(members.len());
-                    for m in &members {
-                        let lit = current_interval_choice_lit(
-                            &mut solver,
-                            &occupations,
-                            &mut current_choice_lits,
                             m.visit_id,
+                            tau_plus_1,
                         );
-                        clique_lits.push(lit);
+                        active_lits.push(lit);
                     }
 
-                    add_hybrid_amo(&mut solver, &clique_lits);
-                    n_conflict_constraints += 1;
+                    add_hybrid_amo(&mut solver, &active_lits);
                 }
+                n_conflict_constraints += 1;
+                cliques_processed += 1;
             }
 
             let mut new_touched = Vec::new();
@@ -1678,9 +2096,40 @@ fn solve_native_debug_with_mode(
             if !(found_resource_conflict || found_travel_time_conflict) {
                 let sol = extract_solution(problem, &occupations);
                 let cost = problem.cost(&sol, delay_cost_type);
+                if trace_bound_queries {
+                    eprintln!(
+                        "[SAT-BOUND-TRACE] instance={} event=feasible_solution iter={} cost={} lb={} ub={:?} bound_used={:?}",
+                        problem.name,
+                        iteration,
+                        cost,
+                        lower_bound,
+                        upper_bound,
+                        bound_used
+                    );
+                }
 
                 if best_sol.as_ref().map(|(c, _)| cost < *c).unwrap_or(true) {
                     best_sol = Some((cost, sol.clone()));
+                    if trace_bound_queries {
+                        eprintln!(
+                            "[SAT-BOUND-TRACE] instance={} event=incumbent_update iter={} new_cost={} lb={} ub={:?}",
+                            problem.name,
+                            iteration,
+                            cost,
+                            lower_bound,
+                            upper_bound
+                        );
+                    }
+                    if logged_incumbent != Some(cost) {
+                        value_trace.incumbent(
+                            start_time,
+                            cost,
+                            lower_bound,
+                            Some(iteration as i32),
+                            Some("sat_solution"),
+                        );
+                        logged_incumbent = Some(cost);
+                    }
                 }
 
                 if search == SatSearchMode::UbSearch {
@@ -1706,6 +2155,8 @@ fn solve_native_debug_with_mode(
                         if ub < lower_bound {
                             let (c, s) = best_sol.clone().unwrap();
                             stats.satsolver = format!("{:?}", solver);
+                            value_trace.optimal(start_time, c, Some(iteration as i32));
+                            value_trace.emit(&mut output_stats, Some(c));
                             do_output_stats(
                                 &mut output_stats,
                                 iteration,
@@ -1797,6 +2248,8 @@ fn solve_native_debug_with_mode(
                     if let Some((c, s)) = best_sol.clone() {
                         stats.n_unsat += 1;
                         stats.satsolver = format!("{:?}", solver);
+                        value_trace.optimal(start_time, c, Some(iteration as i32));
+                        value_trace.emit(&mut output_stats, Some(c));
                         do_output_stats(
                             &mut output_stats,
                             iteration,
@@ -1965,6 +2418,27 @@ fn solve_native_debug_with_mode(
         let solver_debug = format!("{:?}", solver);
         let remaining_timeout = (timeout - start_time.elapsed().as_secs_f64()).max(0.0);
         solver.set_solve_timeout(Some(Duration::from_secs_f64(remaining_timeout)));
+        let bound_assumption_count = bound_assumptions.len();
+        if trace_bound_queries {
+            let total_delay_points: usize = occupations.iter().map(|occ| occ.delays.len()).sum();
+            eprintln!(
+                "[SAT-BOUND-TRACE] instance={} event=query iter={} search={:?} mode={:?} encoding={:?} lb={} ub={:?} bound_used={:?} best_sol={:?} assumptions={} delay_points={} touched={} fixed_prec_rows={} resource_rows={}",
+                problem.name,
+                iteration,
+                search,
+                mode,
+                encoding,
+                lower_bound,
+                upper_bound,
+                bound_used,
+                best_sol.as_ref().map(|(c, _)| *c),
+                bound_assumption_count,
+                total_delay_points,
+                touched_intervals.len(),
+                fixed_prec_rows.len(),
+                added_resource_clique_rows.len()
+            );
+        }
         println!(
             "SAT iteration {} LB={} UB={:?} query_bound={:?}",
             iteration, lower_bound, upper_bound, bound_used
@@ -1975,6 +2449,17 @@ fn solve_native_debug_with_mode(
 
         match result {
             NativeSolveResult::Sat(model) => {
+                if trace_bound_queries {
+                    eprintln!(
+                        "[SAT-BOUND-TRACE] instance={} event=result iter={} result=SAT lb={} ub={:?} bound_used={:?} best_sol_before={:?}",
+                        problem.name,
+                        iteration,
+                        lower_bound,
+                        upper_bound,
+                        bound_used,
+                        best_sol.as_ref().map(|(c, _)| *c)
+                    );
+                }
                 is_sat = true;
                 stats.n_sat += 1;
 
@@ -2024,11 +2509,24 @@ fn solve_native_debug_with_mode(
                 }
             }
             NativeSolveResult::Unsat(_core) => {
+                if trace_bound_queries {
+                    eprintln!(
+                        "[SAT-BOUND-TRACE] instance={} event=result iter={} result=UNSAT lb_before={} ub={:?} bound_used={:?} best_sol={:?}",
+                        problem.name,
+                        iteration,
+                        lower_bound,
+                        upper_bound,
+                        bound_used,
+                        best_sol.as_ref().map(|(c, _)| *c)
+                    );
+                }
                 is_sat = false;
                 stats.n_unsat += 1;
                 if search == SatSearchMode::Invalid {
                     if let Some((c, s)) = best_sol.clone() {
                         stats.satsolver = solver_debug;
+                        value_trace.optimal(start_time, c, Some(iteration as i32));
+                        value_trace.emit(&mut output_stats, Some(c));
                         do_output_stats(
                             &mut output_stats,
                             iteration,
@@ -2047,12 +2545,35 @@ fn solve_native_debug_with_mode(
 
                 if let Some(bound) = bound_used {
                     lower_bound = bound + 1;
+                    if trace_bound_queries {
+                        eprintln!(
+                            "[SAT-BOUND-TRACE] instance={} event=lower_bound_update iter={} from_unsat_bound={} new_lb={} ub={:?} best_sol={:?}",
+                            problem.name,
+                            iteration,
+                            bound,
+                            lower_bound,
+                            upper_bound,
+                            best_sol.as_ref().map(|(c, _)| *c)
+                        );
+                    }
+                    if logged_lower_bound != Some(lower_bound) {
+                        value_trace.lower_bound(
+                            start_time,
+                            lower_bound,
+                            best_sol.as_ref().map(|(c, _)| *c),
+                            Some(iteration as i32),
+                            Some("unsat_bound"),
+                        );
+                        logged_lower_bound = Some(lower_bound);
+                    }
                     if use_cont_fixed_query {
                         cont_active_query_bound = None;
                     }
                     if let (Some((c, s)), Some(ub)) = (best_sol.clone(), upper_bound) {
                         if ub < lower_bound {
                             stats.satsolver = solver_debug;
+                            value_trace.optimal(start_time, c, Some(iteration as i32));
+                            value_trace.emit(&mut output_stats, Some(c));
                             do_output_stats(
                                 &mut output_stats,
                                 iteration,
@@ -2078,6 +2599,8 @@ fn solve_native_debug_with_mode(
                 let ub = best_sol.as_ref().map(|(c, _)| *c).unwrap_or(i32::MAX);
                 let lb = lower_bound;
                 println!("TIMEOUT LB={} UB={}", lb, ub);
+                value_trace.timeout(start_time, lb, best_sol.as_ref().map(|(c, _)| *c), Some(iteration as i32));
+                value_trace.emit(&mut output_stats, best_sol.as_ref().map(|(c, _)| *c));
                 do_output_stats(
                     &mut output_stats,
                     iteration,

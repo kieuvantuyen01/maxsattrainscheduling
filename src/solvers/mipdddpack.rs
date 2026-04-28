@@ -9,7 +9,7 @@ use log::info;
 
 use crate::problem::{DelayCostType, Problem};
 
-use super::SolverError;
+use super::{value_trace::ValueTrace, SolverError};
 const M: f64 = 100_000.0;
 
 pub fn solve(
@@ -98,6 +98,9 @@ pub fn solve(
     let mut iteration = 0;
     let mut best_heur: Option<(i32, Vec<Vec<i32>>)> = None;
     let mut global_lb = 0i32;
+    let mut value_trace = ValueTrace::default();
+    let mut logged_lb: Option<i32> = None;
+    let mut logged_incumbent: Option<i32> = None;
 
     loop {
         iteration += 1;
@@ -293,9 +296,11 @@ pub fn solve(
         let _p = hprof::enter("mipddd refine");
 
         if status == Status::TimeLimit {
-            let ub = best_heur.map(|(c, _)| c).unwrap_or(i32::MAX);
+            let ub = best_heur.as_ref().map(|(c, _)| *c).unwrap_or(i32::MAX);
             println!("TIMEOUT LB={} UB={}", global_lb, ub);
+            value_trace.timeout(start_time, global_lb, best_heur.as_ref().map(|(c, _)| *c), Some(iteration));
 
+            value_trace.emit(&mut output_stats, best_heur.as_ref().map(|(c, _)| *c));
             do_output_stats(
                 &mut output_stats,
                 iteration,
@@ -323,9 +328,21 @@ pub fn solve(
             .map_err(SolverError::GurobiError)?;
 
         global_lb = cost.round() as i32;
+        if logged_lb != Some(global_lb) {
+            value_trace.lower_bound(
+                start_time,
+                global_lb,
+                best_heur.as_ref().map(|(c, _)| *c),
+                Some(iteration),
+                Some("gurobi_optimize"),
+            );
+            logged_lb = Some(global_lb);
+        }
 
         if cost.round() as i32 == best_heur.as_ref().map(|(c, _)| *c).unwrap_or(i32::MAX) {
             println!("TERMINATE HEURISTIC");
+            value_trace.optimal(start_time, global_lb, Some(iteration));
+            value_trace.emit(&mut output_stats, Some(global_lb));
             do_output_stats(
                 &mut output_stats,
                 iteration,
@@ -428,6 +445,18 @@ pub fn solve(
                 if ub_cost == lb_cost {
                     println!("HEURISTIC UB=LB");
                     println!("TERMINATE HEURISTIC");
+                    if logged_incumbent != Some(ub_cost) {
+                        value_trace.incumbent(
+                            start_time,
+                            ub_cost,
+                            lb_cost,
+                            Some(iteration),
+                            Some("heuristic"),
+                        );
+                        logged_incumbent = Some(ub_cost);
+                    }
+                    value_trace.optimal(start_time, ub_cost, Some(iteration));
+                    value_trace.emit(&mut output_stats, Some(ub_cost));
                     do_output_stats(
                         &mut output_stats,
                         iteration,
@@ -445,6 +474,16 @@ pub fn solve(
 
                 if ub_cost < best_heur.as_ref().map(|(c, _)| *c).unwrap_or(i32::MAX) {
                     best_heur = Some((ub_cost, ub_sol));
+                    if logged_incumbent != Some(ub_cost) {
+                        value_trace.incumbent(
+                            start_time,
+                            ub_cost,
+                            lb_cost,
+                            Some(iteration),
+                            Some("heuristic"),
+                        );
+                        logged_incumbent = Some(ub_cost);
+                    }
                 }
             }
         }
@@ -565,6 +604,17 @@ pub fn solve(
                 .sum::<usize>();
             println!("Solved with cost {} and {} intervals", cost, n_intervals);
 
+            if logged_incumbent != Some(global_lb) {
+                value_trace.incumbent(
+                    start_time,
+                    global_lb,
+                    global_lb,
+                    Some(iteration),
+                    Some("final_solution"),
+                );
+            }
+            value_trace.optimal(start_time, global_lb, Some(iteration));
+            value_trace.emit(&mut output_stats, Some(global_lb));
             do_output_stats(
                 &mut output_stats,
                 iteration,

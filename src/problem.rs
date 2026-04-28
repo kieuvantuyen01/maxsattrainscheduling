@@ -197,6 +197,45 @@ impl Problem {
 }
 
 impl Train {
+    /// Returns the absolute times (> `earliest`) at which delay cost first increases
+    /// for the given visit. Pre-seeding these into the DDD discretization ensures the
+    /// solver can always reach every cost level, which is necessary for optimality.
+    pub fn visit_cost_threshold_times(
+        &self,
+        delay_cost_type: DelayCostType,
+        path_idx: usize,
+        earliest: i32,
+    ) -> Vec<i32> {
+        let aimed = match self.visits[path_idx].aimed {
+            Some(a) => a,
+            None => return vec![],
+        };
+
+        let step_delays: Vec<i32> = match delay_cost_type {
+            DelayCostType::FiniteSteps1_3Min => DelayCostThresholds::f1_3min().step_delays(),
+            DelayCostType::FiniteSteps1_5Min => DelayCostThresholds::f1_5min().step_delays(),
+            DelayCostType::FiniteSteps123 => DelayCostThresholds::f123().step_delays(),
+            DelayCostType::FiniteSteps12345 => DelayCostThresholds::f12345().step_delays(),
+            DelayCostType::FiniteSteps139 => DelayCostThresholds::f139().step_delays(),
+            DelayCostType::InfiniteSteps60 => {
+                iter_infinite_staircase(60).map(|(d, _)| d).take(100).collect()
+            }
+            DelayCostType::InfiniteSteps180 => {
+                iter_infinite_staircase(180).map(|(d, _)| d).take(100).collect()
+            }
+            DelayCostType::InfiniteSteps360 => {
+                iter_infinite_staircase(360).map(|(d, _)| d).take(100).collect()
+            }
+            DelayCostType::Continuous => vec![],
+        };
+
+        step_delays
+            .into_iter()
+            .map(|d| aimed + d)
+            .filter(|&t| t > earliest)
+            .collect()
+    }
+
     pub fn visit_delay_cost(
         &self,
         delay_cost_type: DelayCostType,
@@ -272,6 +311,13 @@ impl DelayCostThresholds {
             }
         }
         0
+    }
+
+    // Returns the first delay at which each higher cost level begins.
+    // Each threshold (d, _) means delay > d triggers a new cost level, so the
+    // first delay in that level is d+1.
+    pub fn step_delays(&self) -> Vec<i32> {
+        self.thresholds.iter().map(|(d, _)| *d + 1).collect()
     }
 }
 

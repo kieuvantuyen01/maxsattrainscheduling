@@ -1,0 +1,2012 @@
+[
+  {
+    "avg_tracks": 20.931034088134766,
+    "conflicting_visit_pairs": 5915,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 0,
+    "name": "origA1",
+    "solves": [
+      {
+        "algorithm_time": 0.084734335,
+        "cost": 5526,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 5526.0,
+        "intervals": 2107,
+        "iteration": 5,
+        "lb": 5526,
+        "resource_constraints": 32,
+        "sol_time": 217.417326,
+        "solver_name": "MipDdd",
+        "solver_time": 0.132060683,
+        "status": "ok",
+        "total_time": 0.216794705,
+        "travel_constraints": 2048,
+        "ub": 5526
+      }
+    ],
+    "trains": 29
+  },
+  {
+    "avg_tracks": 19.0,
+    "conflicting_visit_pairs": 3735,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 1,
+    "name": "origA2",
+    "solves": [
+      {
+        "algorithm_time": 0.05941067,
+        "cost": 5804,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 5804.0,
+        "intervals": 1823,
+        "iteration": 5,
+        "lb": 5804,
+        "resource_constraints": 83,
+        "sol_time": 255.69728899999998,
+        "solver_name": "MipDdd",
+        "solver_time": 0.195934966,
+        "status": "ok",
+        "total_time": 0.255345328,
+        "travel_constraints": 1757,
+        "ub": 5804
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 22.375,
+    "conflicting_visit_pairs": 2061,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 2,
+    "name": "origA3",
+    "solves": [
+      {
+        "algorithm_time": 0.033302165999999994,
+        "cost": 1329,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 1329.0,
+        "intervals": 1214,
+        "iteration": 4,
+        "lb": 1329,
+        "resource_constraints": 14,
+        "sol_time": 66.635962,
+        "solver_name": "MipDdd",
+        "solver_time": 0.033153583,
+        "status": "ok",
+        "total_time": 0.066455263,
+        "travel_constraints": 1180,
+        "ub": 1329
+      }
+    ],
+    "trains": 16
+  },
+  {
+    "avg_tracks": 19.214284896850586,
+    "conflicting_visit_pairs": 1175,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 3,
+    "name": "origA4",
+    "solves": [
+      {
+        "algorithm_time": 0.028672324,
+        "cost": 2706,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 2706.0,
+        "intervals": 1046,
+        "iteration": 4,
+        "lb": 2706,
+        "resource_constraints": 18,
+        "sol_time": 63.760803,
+        "solver_name": "MipDdd",
+        "solver_time": 0.034901084,
+        "status": "ok",
+        "total_time": 0.06357292,
+        "travel_constraints": 1013,
+        "ub": 2706
+      }
+    ],
+    "trains": 14
+  },
+  {
+    "avg_tracks": 19.25,
+    "conflicting_visit_pairs": 876,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 4,
+    "name": "origA5",
+    "solves": [
+      {
+        "algorithm_time": 0.016488893,
+        "cost": 2634,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 2634.0,
+        "intervals": 878,
+        "iteration": 3,
+        "lb": 2634,
+        "resource_constraints": 19,
+        "sol_time": 34.6085,
+        "solver_name": "MipDdd",
+        "solver_time": 0.01794645,
+        "status": "ok",
+        "total_time": 0.034435005,
+        "travel_constraints": 850,
+        "ub": 2634
+      }
+    ],
+    "trains": 12
+  },
+  {
+    "avg_tracks": 18.625,
+    "conflicting_visit_pairs": 307,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 5,
+    "name": "origA6",
+    "solves": [
+      {
+        "algorithm_time": 0.016231641999999998,
+        "cost": 2043,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 2043.0,
+        "intervals": 544,
+        "iteration": 3,
+        "lb": 2043,
+        "resource_constraints": 8,
+        "sol_time": 26.901873,
+        "solver_name": "MipDdd",
+        "solver_time": 0.010502828,
+        "status": "ok",
+        "total_time": 0.026734123,
+        "travel_constraints": 526,
+        "ub": 2043
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 12.625,
+    "conflicting_visit_pairs": 126,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 6,
+    "name": "origA7",
+    "solves": [
+      {
+        "algorithm_time": 0.008016569,
+        "cost": 1918,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 1918.0,
+        "intervals": 450,
+        "iteration": 2,
+        "lb": 1918,
+        "resource_constraints": 7,
+        "sol_time": 14.746267,
+        "solver_name": "MipDdd",
+        "solver_time": 0.006585173,
+        "status": "ok",
+        "total_time": 0.014601152,
+        "travel_constraints": 432,
+        "ub": 1918
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 19.214284896850586,
+    "conflicting_visit_pairs": 4877,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 7,
+    "name": "origA8",
+    "solves": [
+      {
+        "algorithm_time": 0.6229049550000099,
+        "cost": 23143,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 23143.0,
+        "intervals": 7700,
+        "iteration": 12,
+        "lb": 23143,
+        "resource_constraints": 2829,
+        "sol_time": 65485.433496,
+        "solver_name": "MipDdd",
+        "solver_time": 64.860851011,
+        "status": "ok",
+        "total_time": 65.483755663,
+        "travel_constraints": 7414,
+        "ub": 23143
+      }
+    ],
+    "trains": 28
+  },
+  {
+    "avg_tracks": 20.049999237060547,
+    "conflicting_visit_pairs": 2616,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 8,
+    "name": "origA9",
+    "solves": [
+      {
+        "algorithm_time": 0.06850480399999997,
+        "cost": 6178,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 6178.0,
+        "intervals": 2104,
+        "iteration": 6,
+        "lb": 6178,
+        "resource_constraints": 68,
+        "sol_time": 324.74098899999996,
+        "solver_name": "MipDdd",
+        "solver_time": 0.254873402,
+        "status": "ok",
+        "total_time": 0.323377736,
+        "travel_constraints": 2035,
+        "ub": 6178
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 18.176469802856445,
+    "conflicting_visit_pairs": 1632,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 9,
+    "name": "origA10",
+    "solves": [
+      {
+        "algorithm_time": 0.06062248200000003,
+        "cost": 4746,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 4746.0,
+        "intervals": 1761,
+        "iteration": 6,
+        "lb": 4746,
+        "resource_constraints": 75,
+        "sol_time": 415.527344,
+        "solver_name": "MipDdd",
+        "solver_time": 0.354661996,
+        "status": "ok",
+        "total_time": 0.415284184,
+        "travel_constraints": 1699,
+        "ub": 4746
+      }
+    ],
+    "trains": 17
+  },
+  {
+    "avg_tracks": 19.83333396911621,
+    "conflicting_visit_pairs": 6162,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 10,
+    "name": "origA11",
+    "solves": [
+      {
+        "algorithm_time": 0.13938119599999998,
+        "cost": 3331,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 3331.0,
+        "intervals": 3926,
+        "iteration": 6,
+        "lb": 3331,
+        "resource_constraints": 225,
+        "sol_time": 2050.9133620000002,
+        "solver_name": "MipDdd",
+        "solver_time": 1.9111789909999999,
+        "status": "ok",
+        "total_time": 2.050559728,
+        "travel_constraints": 3798,
+        "ub": 3331
+      }
+    ],
+    "trains": 30
+  },
+  {
+    "avg_tracks": 21.714284896850586,
+    "conflicting_visit_pairs": 6393,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 11,
+    "name": "origA12",
+    "solves": [
+      {
+        "algorithm_time": 0.164198882,
+        "cost": 4247,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 4247.0,
+        "intervals": 4428,
+        "iteration": 7,
+        "lb": 4247,
+        "resource_constraints": 247,
+        "sol_time": 4671.357014,
+        "solver_name": "MipDdd",
+        "solver_time": 4.506740413,
+        "status": "ok",
+        "total_time": 4.670938963,
+        "travel_constraints": 4281,
+        "ub": 4247
+      }
+    ],
+    "trains": 28
+  },
+  {
+    "avg_tracks": 17.33333396911621,
+    "conflicting_visit_pairs": 2022,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 12,
+    "name": "origB1",
+    "solves": [
+      {
+        "algorithm_time": 0.026853372,
+        "cost": 969,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 969.0,
+        "intervals": 798,
+        "iteration": 4,
+        "lb": 969,
+        "resource_constraints": 5,
+        "sol_time": 35.374496,
+        "solver_name": "MipDdd",
+        "solver_time": 0.008366367,
+        "status": "ok",
+        "total_time": 0.035219451,
+        "travel_constraints": 772,
+        "ub": 969
+      }
+    ],
+    "trains": 18
+  },
+  {
+    "avg_tracks": 14.800000190734863,
+    "conflicting_visit_pairs": 87,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 13,
+    "name": "origB2",
+    "solves": [
+      {
+        "algorithm_time": 0.005346749,
+        "cost": 347,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 347.0,
+        "intervals": 205,
+        "iteration": 2,
+        "lb": 347,
+        "resource_constraints": 1,
+        "sol_time": 5.9753039999999995,
+        "solver_name": "MipDdd",
+        "solver_time": 0.000500997,
+        "status": "ok",
+        "total_time": 0.005847411,
+        "travel_constraints": 198,
+        "ub": 347
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 16.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 20,
+    "delay_cost_type": "Continuous",
+    "index": 14,
+    "name": "origB3",
+    "solves": [
+      {
+        "algorithm_time": 0.014398695999999999,
+        "cost": 629,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 629.0,
+        "intervals": 467,
+        "iteration": 4,
+        "lb": 629,
+        "resource_constraints": 15,
+        "sol_time": 36.964273999999996,
+        "solver_name": "MipDdd",
+        "solver_time": 0.022391679,
+        "status": "ok",
+        "total_time": 0.036789911,
+        "travel_constraints": 448,
+        "ub": 629
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.949999809265137,
+    "conflicting_visit_pairs": 2246,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 15,
+    "name": "origB4",
+    "solves": [
+      {
+        "algorithm_time": 0.057866074,
+        "cost": 53607,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 53607.0,
+        "intervals": 1128,
+        "iteration": 7,
+        "lb": 53607,
+        "resource_constraints": 301,
+        "sol_time": 165.182749,
+        "solver_name": "MipDdd",
+        "solver_time": 0.107115371,
+        "status": "ok",
+        "total_time": 0.164980404,
+        "travel_constraints": 1082,
+        "ub": 53607
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 17.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 16,
+    "name": "origB5",
+    "solves": [
+      {
+        "algorithm_time": 0.012089039,
+        "cost": 288,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 288.0,
+        "intervals": 319,
+        "iteration": 4,
+        "lb": 288,
+        "resource_constraints": 3,
+        "sol_time": 16.178179,
+        "solver_name": "MipDdd",
+        "solver_time": 0.003896625,
+        "status": "ok",
+        "total_time": 0.015985366,
+        "travel_constraints": 308,
+        "ub": 288
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.199999809265137,
+    "conflicting_visit_pairs": 93,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 17,
+    "name": "origB6",
+    "solves": [
+      {
+        "algorithm_time": 0.005349908,
+        "cost": 176,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 176.0,
+        "intervals": 199,
+        "iteration": 2,
+        "lb": 176,
+        "resource_constraints": 1,
+        "sol_time": 5.943218,
+        "solver_name": "MipDdd",
+        "solver_time": 0.000465863,
+        "status": "ok",
+        "total_time": 0.005815492,
+        "travel_constraints": 192,
+        "ub": 176
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.25,
+    "conflicting_visit_pairs": 2865,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 18,
+    "name": "origB7",
+    "solves": [
+      {
+        "algorithm_time": 0.6008308920000012,
+        "cost": 65828,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 65828.0,
+        "intervals": 2718,
+        "iteration": 20,
+        "lb": 65828,
+        "resource_constraints": 5963,
+        "sol_time": 18847.952369000002,
+        "solver_name": "MipDdd",
+        "solver_time": 18.246755089,
+        "status": "ok",
+        "total_time": 18.847585475,
+        "travel_constraints": 2578,
+        "ub": 65828
+      }
+    ],
+    "trains": 24
+  },
+  {
+    "avg_tracks": 13.399999618530273,
+    "conflicting_visit_pairs": 72,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 19,
+    "name": "origB8",
+    "solves": [
+      {
+        "algorithm_time": 0.005973521,
+        "cost": 676,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 676.0,
+        "intervals": 181,
+        "iteration": 2,
+        "lb": 676,
+        "resource_constraints": 1,
+        "sol_time": 6.62932,
+        "solver_name": "MipDdd",
+        "solver_time": 0.000535392,
+        "status": "ok",
+        "total_time": 0.006508283,
+        "travel_constraints": 174,
+        "ub": 676
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 13.571428298950195,
+    "conflicting_visit_pairs": 150,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 20,
+    "name": "origB9",
+    "solves": [
+      {
+        "algorithm_time": 0.025510693,
+        "cost": 5967,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 5967.0,
+        "intervals": 577,
+        "iteration": 5,
+        "lb": 5967,
+        "resource_constraints": 21,
+        "sol_time": 100.627876,
+        "solver_name": "MipDdd",
+        "solver_time": 0.074903892,
+        "status": "ok",
+        "total_time": 0.100413476,
+        "travel_constraints": 552,
+        "ub": 5967
+      }
+    ],
+    "trains": 7
+  },
+  {
+    "avg_tracks": 11.375,
+    "conflicting_visit_pairs": 130,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 21,
+    "name": "origB10",
+    "solves": [
+      {
+        "algorithm_time": 0.013221268000000001,
+        "cost": 5747,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 5747.0,
+        "intervals": 546,
+        "iteration": 3,
+        "lb": 5747,
+        "resource_constraints": 16,
+        "sol_time": 38.115655,
+        "solver_name": "MipDdd",
+        "solver_time": 0.024626608,
+        "status": "ok",
+        "total_time": 0.037847373,
+        "travel_constraints": 522,
+        "ub": 5747
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 15.399999618530273,
+    "conflicting_visit_pairs": 3202,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 22,
+    "name": "origB11",
+    "solves": [
+      {
+        "algorithm_time": 1.5512979649999963,
+        "cost": 75494,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 75494.0,
+        "intervals": 3595,
+        "iteration": 33,
+        "lb": 75494,
+        "resource_constraints": 12604,
+        "sol_time": 54548.971449,
+        "solver_name": "MipDdd",
+        "solver_time": 52.995746738,
+        "status": "ok",
+        "total_time": 54.547044413,
+        "travel_constraints": 3384,
+        "ub": 75494
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 16.214284896850586,
+    "conflicting_visit_pairs": 970,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 23,
+    "name": "origB12",
+    "solves": [
+      {
+        "algorithm_time": 0.010350733999999999,
+        "cost": 918,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 918.0,
+        "intervals": 604,
+        "iteration": 2,
+        "lb": 918,
+        "resource_constraints": 5,
+        "sol_time": 11.408849,
+        "solver_name": "MipDdd",
+        "solver_time": 0.000945486,
+        "status": "ok",
+        "total_time": 0.011295886,
+        "travel_constraints": 584,
+        "ub": 918
+      }
+    ],
+    "trains": 14
+  },
+  {
+    "avg_tracks": 20.931034088134766,
+    "conflicting_visit_pairs": 5915,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 24,
+    "name": "trackA1",
+    "solves": [
+      {
+        "algorithm_time": 0.22258273100000014,
+        "cost": 9621,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 9621.0,
+        "intervals": 5097,
+        "iteration": 7,
+        "lb": 9621,
+        "resource_constraints": 413,
+        "sol_time": 5445.866412,
+        "solver_name": "MipDdd",
+        "solver_time": 5.222857083,
+        "status": "ok",
+        "total_time": 5.445439504,
+        "travel_constraints": 4935,
+        "ub": 9621
+      }
+    ],
+    "trains": 29
+  },
+  {
+    "avg_tracks": 19.0,
+    "conflicting_visit_pairs": 3735,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 25,
+    "name": "trackA2",
+    "solves": [
+      {
+        "algorithm_time": 0.19751231200000063,
+        "cost": 6859,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 6859.0,
+        "intervals": 3951,
+        "iteration": 8,
+        "lb": 6859,
+        "resource_constraints": 382,
+        "sol_time": 8108.676379,
+        "solver_name": "MipDdd",
+        "solver_time": 7.910786643,
+        "status": "ok",
+        "total_time": 8.108298589,
+        "travel_constraints": 3810,
+        "ub": 6859
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 22.375,
+    "conflicting_visit_pairs": 2061,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 26,
+    "name": "trackA3",
+    "solves": [
+      {
+        "algorithm_time": 0.09873193399999991,
+        "cost": 2077,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 2077.0,
+        "intervals": 3024,
+        "iteration": 6,
+        "lb": 2077,
+        "resource_constraints": 313,
+        "sol_time": 895.956729,
+        "solver_name": "MipDdd",
+        "solver_time": 0.796917752,
+        "status": "ok",
+        "total_time": 0.895649362,
+        "travel_constraints": 2928,
+        "ub": 2077
+      }
+    ],
+    "trains": 16
+  },
+  {
+    "avg_tracks": 19.214284896850586,
+    "conflicting_visit_pairs": 1175,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 27,
+    "name": "trackA4",
+    "solves": [
+      {
+        "algorithm_time": 0.022149256,
+        "cost": 2069,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 2069.0,
+        "intervals": 1268,
+        "iteration": 3,
+        "lb": 2069,
+        "resource_constraints": 37,
+        "sol_time": 62.824676999999994,
+        "solver_name": "MipDdd",
+        "solver_time": 0.040541681,
+        "status": "ok",
+        "total_time": 0.062690454,
+        "travel_constraints": 1231,
+        "ub": 2069
+      }
+    ],
+    "trains": 14
+  },
+  {
+    "avg_tracks": 19.25,
+    "conflicting_visit_pairs": 876,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 28,
+    "name": "trackA5",
+    "solves": [
+      {
+        "algorithm_time": 0.04004149200000001,
+        "cost": 2773,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 2773.0,
+        "intervals": 1326,
+        "iteration": 5,
+        "lb": 2773,
+        "resource_constraints": 91,
+        "sol_time": 211.942011,
+        "solver_name": "MipDdd",
+        "solver_time": 0.171684817,
+        "status": "ok",
+        "total_time": 0.21172517,
+        "travel_constraints": 1278,
+        "ub": 2773
+      }
+    ],
+    "trains": 12
+  },
+  {
+    "avg_tracks": 18.625,
+    "conflicting_visit_pairs": 307,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 29,
+    "name": "trackA6",
+    "solves": [
+      {
+        "algorithm_time": 0.025428419,
+        "cost": 1679,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 1679.0,
+        "intervals": 704,
+        "iteration": 5,
+        "lb": 1679,
+        "resource_constraints": 17,
+        "sol_time": 83.72751000000001,
+        "solver_name": "MipDdd",
+        "solver_time": 0.058101824,
+        "status": "ok",
+        "total_time": 0.083529898,
+        "travel_constraints": 680,
+        "ub": 1679
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 12.625,
+    "conflicting_visit_pairs": 126,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 30,
+    "name": "trackA7",
+    "solves": [
+      {
+        "algorithm_time": 0.010990782999999999,
+        "cost": 1393,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 1393.0,
+        "intervals": 476,
+        "iteration": 3,
+        "lb": 1393,
+        "resource_constraints": 10,
+        "sol_time": 24.584119,
+        "solver_name": "MipDdd",
+        "solver_time": 0.013426809,
+        "status": "ok",
+        "total_time": 0.024417264,
+        "travel_constraints": 458,
+        "ub": 1393
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 19.88888931274414,
+    "conflicting_visit_pairs": 4862,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 31,
+    "name": "trackA8",
+    "solves": [
+      {
+        "algorithm_time": 0.7890841560000013,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 23856.0,
+        "intervals": 11769,
+        "iteration": 9,
+        "lb": 23856,
+        "resource_constraints": 10313,
+        "sol_time": 120155.85293,
+        "solver_name": "MipDdd",
+        "solver_time": 119.363534976,
+        "status": "timeout",
+        "total_time": 120.152616761,
+        "travel_constraints": 11335,
+        "ub": 27544
+      }
+    ],
+    "trains": 27
+  },
+  {
+    "avg_tracks": 20.049999237060547,
+    "conflicting_visit_pairs": 2616,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 32,
+    "name": "trackA9",
+    "solves": [
+      {
+        "algorithm_time": 0.10437243900000004,
+        "cost": 6305,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 6305.0,
+        "intervals": 3116,
+        "iteration": 5,
+        "lb": 6305,
+        "resource_constraints": 289,
+        "sol_time": 1598.5669329999998,
+        "solver_name": "MipDdd",
+        "solver_time": 1.493792168,
+        "status": "ok",
+        "total_time": 1.5981639680000002,
+        "travel_constraints": 3011,
+        "ub": 6305
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 18.176469802856445,
+    "conflicting_visit_pairs": 1632,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 33,
+    "name": "trackA10",
+    "solves": [
+      {
+        "algorithm_time": 0.04270147399999999,
+        "cost": 4812,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 4812.0,
+        "intervals": 1709,
+        "iteration": 4,
+        "lb": 4812,
+        "resource_constraints": 134,
+        "sol_time": 163.831943,
+        "solver_name": "MipDdd",
+        "solver_time": 0.120872377,
+        "status": "ok",
+        "total_time": 0.163572368,
+        "travel_constraints": 1651,
+        "ub": 4812
+      }
+    ],
+    "trains": 17
+  },
+  {
+    "avg_tracks": 20.482759475708008,
+    "conflicting_visit_pairs": 6144,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 34,
+    "name": "trackA11",
+    "solves": [
+      {
+        "algorithm_time": 1.165208218999993,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 13737.0,
+        "intervals": 14709,
+        "iteration": 9,
+        "lb": 13737,
+        "resource_constraints": 19988,
+        "sol_time": 120273.579829,
+        "solver_name": "MipDdd",
+        "solver_time": 119.105255807,
+        "status": "timeout",
+        "total_time": 120.270463512,
+        "travel_constraints": 14130,
+        "ub": 22619
+      }
+    ],
+    "trains": 29
+  },
+  {
+    "avg_tracks": 21.714284896850586,
+    "conflicting_visit_pairs": 6393,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 35,
+    "name": "trackA12",
+    "solves": [
+      {
+        "algorithm_time": 0.6499344810000025,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 13993.0,
+        "intervals": 12686,
+        "iteration": 7,
+        "lb": 13993,
+        "resource_constraints": 12055,
+        "sol_time": 120209.715911,
+        "solver_name": "MipDdd",
+        "solver_time": 119.553616428,
+        "status": "timeout",
+        "total_time": 120.203550083,
+        "travel_constraints": 12199,
+        "ub": 29347
+      }
+    ],
+    "trains": 28
+  },
+  {
+    "avg_tracks": 17.33333396911621,
+    "conflicting_visit_pairs": 2022,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 36,
+    "name": "trackB1",
+    "solves": [
+      {
+        "algorithm_time": 0.045780821,
+        "cost": 1507,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 1507.0,
+        "intervals": 1864,
+        "iteration": 4,
+        "lb": 1507,
+        "resource_constraints": 127,
+        "sol_time": 168.830814,
+        "solver_name": "MipDdd",
+        "solver_time": 0.122769148,
+        "status": "ok",
+        "total_time": 0.168549456,
+        "travel_constraints": 1795,
+        "ub": 1507
+      }
+    ],
+    "trains": 18
+  },
+  {
+    "avg_tracks": 14.800000190734863,
+    "conflicting_visit_pairs": 87,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 37,
+    "name": "trackB2",
+    "solves": [
+      {
+        "algorithm_time": 0.013454362999999997,
+        "cost": 4404,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 4404.0,
+        "intervals": 353,
+        "iteration": 4,
+        "lb": 4404,
+        "resource_constraints": 26,
+        "sol_time": 32.637032000000005,
+        "solver_name": "MipDdd",
+        "solver_time": 0.019036813,
+        "status": "ok",
+        "total_time": 0.032490831,
+        "travel_constraints": 333,
+        "ub": 4404
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 16.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 20,
+    "delay_cost_type": "Continuous",
+    "index": 38,
+    "name": "trackB3",
+    "solves": [
+      {
+        "algorithm_time": 0.010841531000000001,
+        "cost": 596,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 596.0,
+        "intervals": 497,
+        "iteration": 3,
+        "lb": 596,
+        "resource_constraints": 33,
+        "sol_time": 26.919169999999998,
+        "solver_name": "MipDdd",
+        "solver_time": 0.015646688,
+        "status": "ok",
+        "total_time": 0.026487722,
+        "travel_constraints": 478,
+        "ub": 596
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.949999809265137,
+    "conflicting_visit_pairs": 2246,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 39,
+    "name": "trackB4",
+    "solves": [
+      {
+        "algorithm_time": 0.8315651599999967,
+        "cost": 60558,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 60558.0,
+        "intervals": 4752,
+        "iteration": 22,
+        "lb": 60558,
+        "resource_constraints": 2590,
+        "sol_time": 48828.764856,
+        "solver_name": "MipDdd",
+        "solver_time": 47.996543013,
+        "status": "ok",
+        "total_time": 48.828107756,
+        "travel_constraints": 4543,
+        "ub": 60558
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 17.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 40,
+    "name": "trackB5",
+    "solves": [
+      {
+        "algorithm_time": 0.039542468,
+        "cost": 1662,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 1662.0,
+        "intervals": 769,
+        "iteration": 6,
+        "lb": 1662,
+        "resource_constraints": 116,
+        "sol_time": 189.471599,
+        "solver_name": "MipDdd",
+        "solver_time": 0.149695235,
+        "status": "ok",
+        "total_time": 0.189237311,
+        "travel_constraints": 736,
+        "ub": 1662
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.199999809265137,
+    "conflicting_visit_pairs": 93,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 41,
+    "name": "trackB6",
+    "solves": [
+      {
+        "algorithm_time": 0.006523519,
+        "cost": 209,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 209.0,
+        "intervals": 279,
+        "iteration": 2,
+        "lb": 209,
+        "resource_constraints": 5,
+        "sol_time": 9.03176,
+        "solver_name": "MipDdd",
+        "solver_time": 0.002323851,
+        "status": "ok",
+        "total_time": 0.008847011,
+        "travel_constraints": 269,
+        "ub": 209
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.25,
+    "conflicting_visit_pairs": 2865,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 42,
+    "name": "trackB7",
+    "solves": [
+      {
+        "algorithm_time": 0.230503181,
+        "cost": 56119,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 56119.0,
+        "intervals": 3264,
+        "iteration": 10,
+        "lb": 56119,
+        "resource_constraints": 523,
+        "sol_time": 1793.0861419999999,
+        "solver_name": "MipDdd",
+        "solver_time": 1.562247625,
+        "status": "ok",
+        "total_time": 1.792750303,
+        "travel_constraints": 3116,
+        "ub": 56119
+      }
+    ],
+    "trains": 24
+  },
+  {
+    "avg_tracks": 13.399999618530273,
+    "conflicting_visit_pairs": 72,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 43,
+    "name": "trackB8",
+    "solves": [
+      {
+        "algorithm_time": 0.030996827000000005,
+        "cost": 1906,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 1906.0,
+        "intervals": 497,
+        "iteration": 8,
+        "lb": 1906,
+        "resource_constraints": 60,
+        "sol_time": 131.897347,
+        "solver_name": "MipDdd",
+        "solver_time": 0.100698903,
+        "status": "ok",
+        "total_time": 0.131695321,
+        "travel_constraints": 469,
+        "ub": 1906
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 13.571428298950195,
+    "conflicting_visit_pairs": 150,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 44,
+    "name": "trackB9",
+    "solves": [
+      {
+        "algorithm_time": 0.05011392199999998,
+        "cost": 8593,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 8593.0,
+        "intervals": 853,
+        "iteration": 8,
+        "lb": 8593,
+        "resource_constraints": 219,
+        "sol_time": 277.94491700000003,
+        "solver_name": "MipDdd",
+        "solver_time": 0.227493795,
+        "status": "ok",
+        "total_time": 0.277606767,
+        "travel_constraints": 809,
+        "ub": 8593
+      }
+    ],
+    "trains": 7
+  },
+  {
+    "avg_tracks": 12.857142448425293,
+    "conflicting_visit_pairs": 126,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 45,
+    "name": "trackB10",
+    "solves": [
+      {
+        "algorithm_time": 0.009155586,
+        "cost": 6912,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 6912.0,
+        "intervals": 291,
+        "iteration": 2,
+        "lb": 6912,
+        "resource_constraints": 3,
+        "sol_time": 10.044476999999999,
+        "solver_name": "MipDdd",
+        "solver_time": 0.000668441,
+        "status": "ok",
+        "total_time": 0.009823398,
+        "travel_constraints": 278,
+        "ub": 6912
+      }
+    ],
+    "trains": 7
+  },
+  {
+    "avg_tracks": 15.399999618530273,
+    "conflicting_visit_pairs": 3202,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 46,
+    "name": "trackB11",
+    "solves": [
+      {
+        "algorithm_time": 0.14806738399999997,
+        "cost": 68844,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 68844.0,
+        "intervals": 2911,
+        "iteration": 8,
+        "lb": 68844,
+        "resource_constraints": 395,
+        "sol_time": 1057.3821429999998,
+        "solver_name": "MipDdd",
+        "solver_time": 0.908964791,
+        "status": "ok",
+        "total_time": 1.057031771,
+        "travel_constraints": 2787,
+        "ub": 68844
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 16.214284896850586,
+    "conflicting_visit_pairs": 970,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 47,
+    "name": "trackB12",
+    "solves": [
+      {
+        "algorithm_time": 0.5514453939999999,
+        "cost": 15182,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 15182.0,
+        "intervals": 2578,
+        "iteration": 18,
+        "lb": 15182,
+        "resource_constraints": 2163,
+        "sol_time": 15995.10482,
+        "solver_name": "MipDdd",
+        "solver_time": 15.443299442,
+        "status": "ok",
+        "total_time": 15.994744565,
+        "travel_constraints": 2407,
+        "ub": 15182
+      }
+    ],
+    "trains": 14
+  },
+  {
+    "avg_tracks": 20.931034088134766,
+    "conflicting_visit_pairs": 5915,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 48,
+    "name": "stationA1",
+    "solves": [
+      {
+        "algorithm_time": 0.4064107660000005,
+        "cost": 12884,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 12884.0,
+        "intervals": 7273,
+        "iteration": 9,
+        "lb": 12884,
+        "resource_constraints": 1137,
+        "sol_time": 24163.613811000003,
+        "solver_name": "MipDdd",
+        "solver_time": 23.756649459,
+        "status": "ok",
+        "total_time": 24.163059787,
+        "travel_constraints": 7021,
+        "ub": 12884
+      }
+    ],
+    "trains": 29
+  },
+  {
+    "avg_tracks": 19.0,
+    "conflicting_visit_pairs": 3735,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 49,
+    "name": "stationA2",
+    "solves": [
+      {
+        "algorithm_time": 0.6432451440000051,
+        "cost": 9193,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 9193.0,
+        "intervals": 6061,
+        "iteration": 14,
+        "lb": 9193,
+        "resource_constraints": 1747,
+        "sol_time": 70913.267689,
+        "solver_name": "MipDdd",
+        "solver_time": 70.269459648,
+        "status": "ok",
+        "total_time": 70.91270432,
+        "travel_constraints": 5823,
+        "ub": 9193
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 22.375,
+    "conflicting_visit_pairs": 2061,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 50,
+    "name": "stationA3",
+    "solves": [
+      {
+        "algorithm_time": 0.32193067500000083,
+        "cost": 3681,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 3681.0,
+        "intervals": 4240,
+        "iteration": 11,
+        "lb": 3681,
+        "resource_constraints": 667,
+        "sol_time": 16555.904294,
+        "solver_name": "MipDdd",
+        "solver_time": 16.233439859,
+        "status": "ok",
+        "total_time": 16.55537,
+        "travel_constraints": 4085,
+        "ub": 3681
+      }
+    ],
+    "trains": 16
+  },
+  {
+    "avg_tracks": 19.214284896850586,
+    "conflicting_visit_pairs": 1175,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 51,
+    "name": "stationA4",
+    "solves": [
+      {
+        "algorithm_time": 0.08013434499999994,
+        "cost": 3122,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 3122.0,
+        "intervals": 2102,
+        "iteration": 6,
+        "lb": 3122,
+        "resource_constraints": 183,
+        "sol_time": 662.413316,
+        "solver_name": "MipDdd",
+        "solver_time": 0.581951078,
+        "status": "ok",
+        "total_time": 0.662085153,
+        "travel_constraints": 2028,
+        "ub": 3122
+      }
+    ],
+    "trains": 14
+  },
+  {
+    "avg_tracks": 19.25,
+    "conflicting_visit_pairs": 876,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 52,
+    "name": "stationA5",
+    "solves": [
+      {
+        "algorithm_time": 0.06871507700000001,
+        "cost": 3306,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 3306.0,
+        "intervals": 1780,
+        "iteration": 6,
+        "lb": 3306,
+        "resource_constraints": 151,
+        "sol_time": 659.901922,
+        "solver_name": "MipDdd",
+        "solver_time": 0.590919629,
+        "status": "ok",
+        "total_time": 0.659634087,
+        "travel_constraints": 1714,
+        "ub": 3306
+      }
+    ],
+    "trains": 12
+  },
+  {
+    "avg_tracks": 18.625,
+    "conflicting_visit_pairs": 307,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 53,
+    "name": "stationA6",
+    "solves": [
+      {
+        "algorithm_time": 0.009553580999999998,
+        "cost": 2149,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 2149.0,
+        "intervals": 490,
+        "iteration": 2,
+        "lb": 2149,
+        "resource_constraints": 7,
+        "sol_time": 14.004238,
+        "solver_name": "MipDdd",
+        "solver_time": 0.004269374,
+        "status": "ok",
+        "total_time": 0.013822585,
+        "travel_constraints": 474,
+        "ub": 2149
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 12.625,
+    "conflicting_visit_pairs": 126,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 54,
+    "name": "stationA7",
+    "solves": [
+      {
+        "algorithm_time": 0.013671682999999997,
+        "cost": 1762,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 1762.0,
+        "intervals": 650,
+        "iteration": 3,
+        "lb": 1762,
+        "resource_constraints": 25,
+        "sol_time": 51.353426,
+        "solver_name": "MipDdd",
+        "solver_time": 0.037461225,
+        "status": "ok",
+        "total_time": 0.051132594,
+        "travel_constraints": 624,
+        "ub": 1762
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 19.88888931274414,
+    "conflicting_visit_pairs": 4862,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 55,
+    "name": "stationA8",
+    "solves": [
+      {
+        "algorithm_time": 0.5379473799999914,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 25331.0,
+        "intervals": 10377,
+        "iteration": 7,
+        "lb": 25331,
+        "resource_constraints": 7906,
+        "sol_time": 120149.956364,
+        "solver_name": "MipDdd",
+        "solver_time": 119.606938157,
+        "status": "timeout",
+        "total_time": 120.144884679,
+        "travel_constraints": 9985,
+        "ub": 28876
+      }
+    ],
+    "trains": 27
+  },
+  {
+    "avg_tracks": 20.049999237060547,
+    "conflicting_visit_pairs": 2616,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 56,
+    "name": "stationA9",
+    "solves": [
+      {
+        "algorithm_time": 0.22977248399999972,
+        "cost": 7655,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 7655.0,
+        "intervals": 4376,
+        "iteration": 8,
+        "lb": 7655,
+        "resource_constraints": 805,
+        "sol_time": 12220.633774,
+        "solver_name": "MipDdd",
+        "solver_time": 11.990369146,
+        "status": "ok",
+        "total_time": 12.220141283,
+        "travel_constraints": 4210,
+        "ub": 7655
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 18.176469802856445,
+    "conflicting_visit_pairs": 1632,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 57,
+    "name": "stationA10",
+    "solves": [
+      {
+        "algorithm_time": 0.1440675360000001,
+        "cost": 6565,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 6565.0,
+        "intervals": 2679,
+        "iteration": 8,
+        "lb": 6565,
+        "resource_constraints": 488,
+        "sol_time": 3349.930624,
+        "solver_name": "MipDdd",
+        "solver_time": 3.2055789949999998,
+        "status": "ok",
+        "total_time": 3.349646115,
+        "travel_constraints": 2575,
+        "ub": 6565
+      }
+    ],
+    "trains": 17
+  },
+  {
+    "avg_tracks": 20.482759475708008,
+    "conflicting_visit_pairs": 6144,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 58,
+    "name": "stationA11",
+    "solves": [
+      {
+        "algorithm_time": 0.5512763510000127,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 14371.0,
+        "intervals": 11751,
+        "iteration": 6,
+        "lb": 14371,
+        "resource_constraints": 11701,
+        "sol_time": 120196.329244,
+        "solver_name": "MipDdd",
+        "solver_time": 119.63634047,
+        "status": "timeout",
+        "total_time": 120.187616429,
+        "travel_constraints": 11277,
+        "ub": 23315
+      }
+    ],
+    "trains": 29
+  },
+  {
+    "avg_tracks": 21.714284896850586,
+    "conflicting_visit_pairs": 6393,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 59,
+    "name": "stationA12",
+    "solves": [
+      {
+        "algorithm_time": 0.809028909999995,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 15168.0,
+        "intervals": 13378,
+        "iteration": 7,
+        "lb": 15168,
+        "resource_constraints": 15567,
+        "sol_time": 120242.79577,
+        "solver_name": "MipDdd",
+        "solver_time": 119.427412691,
+        "status": "timeout",
+        "total_time": 120.236441141,
+        "travel_constraints": 12831,
+        "ub": 24974
+      }
+    ],
+    "trains": 28
+  },
+  {
+    "avg_tracks": 17.33333396911621,
+    "conflicting_visit_pairs": 2022,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 60,
+    "name": "stationB1",
+    "solves": [
+      {
+        "algorithm_time": 0.26194711000000037,
+        "cost": 4246,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 4246.0,
+        "intervals": 2786,
+        "iteration": 7,
+        "lb": 4246,
+        "resource_constraints": 276,
+        "sol_time": 4228.082624,
+        "solver_name": "MipDdd",
+        "solver_time": 3.965767927,
+        "status": "ok",
+        "total_time": 4.227714774,
+        "travel_constraints": 2664,
+        "ub": 4246
+      }
+    ],
+    "trains": 18
+  },
+  {
+    "avg_tracks": 14.800000190734863,
+    "conflicting_visit_pairs": 87,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 61,
+    "name": "stationB2",
+    "solves": [
+      {
+        "algorithm_time": 0.01181603,
+        "cost": 4798,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 4798.0,
+        "intervals": 353,
+        "iteration": 3,
+        "lb": 4798,
+        "resource_constraints": 22,
+        "sol_time": 26.570019000000002,
+        "solver_name": "MipDdd",
+        "solver_time": 0.014528734,
+        "status": "ok",
+        "total_time": 0.02634438,
+        "travel_constraints": 334,
+        "ub": 4798
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 16.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 20,
+    "delay_cost_type": "Continuous",
+    "index": 62,
+    "name": "stationB3",
+    "solves": [
+      {
+        "algorithm_time": 0.012121678,
+        "cost": 674,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 674.0,
+        "intervals": 425,
+        "iteration": 3,
+        "lb": 674,
+        "resource_constraints": 11,
+        "sol_time": 25.226782999999998,
+        "solver_name": "MipDdd",
+        "solver_time": 0.012862512,
+        "status": "ok",
+        "total_time": 0.024983825,
+        "travel_constraints": 408,
+        "ub": 674
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.949999809265137,
+    "conflicting_visit_pairs": 2246,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 63,
+    "name": "stationB4",
+    "solves": [
+      {
+        "algorithm_time": 0.19745739200000045,
+        "cost": 62616,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 62616.0,
+        "intervals": 3088,
+        "iteration": 9,
+        "lb": 62616,
+        "resource_constraints": 565,
+        "sol_time": 9470.959621,
+        "solver_name": "MipDdd",
+        "solver_time": 9.273162483,
+        "status": "ok",
+        "total_time": 9.470619538,
+        "travel_constraints": 2950,
+        "ub": 62616
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 17.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 64,
+    "name": "stationB5",
+    "solves": [
+      {
+        "algorithm_time": 0.023788088000000006,
+        "cost": 1485,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 1485.0,
+        "intervals": 567,
+        "iteration": 6,
+        "lb": 1485,
+        "resource_constraints": 43,
+        "sol_time": 81.434116,
+        "solver_name": "MipDdd",
+        "solver_time": 0.057422126,
+        "status": "ok",
+        "total_time": 0.081209895,
+        "travel_constraints": 542,
+        "ub": 1485
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.199999809265137,
+    "conflicting_visit_pairs": 93,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 65,
+    "name": "stationB6",
+    "solves": [
+      {
+        "algorithm_time": 0.009074727999999999,
+        "cost": 461,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 461.0,
+        "intervals": 283,
+        "iteration": 2,
+        "lb": 461,
+        "resource_constraints": 4,
+        "sol_time": 12.408676,
+        "solver_name": "MipDdd",
+        "solver_time": 0.003119932,
+        "status": "ok",
+        "total_time": 0.012194177,
+        "travel_constraints": 272,
+        "ub": 461
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.25,
+    "conflicting_visit_pairs": 2865,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 66,
+    "name": "stationB7",
+    "solves": [
+      {
+        "algorithm_time": 0.15179328199999986,
+        "cost": 59333,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 59333.0,
+        "intervals": 3510,
+        "iteration": 7,
+        "lb": 59333,
+        "resource_constraints": 464,
+        "sol_time": 4659.127791,
+        "solver_name": "MipDdd",
+        "solver_time": 4.506694798,
+        "status": "ok",
+        "total_time": 4.658487791,
+        "travel_constraints": 3346,
+        "ub": 59333
+      }
+    ],
+    "trains": 24
+  },
+  {
+    "avg_tracks": 13.399999618530273,
+    "conflicting_visit_pairs": 72,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 67,
+    "name": "stationB8",
+    "solves": [
+      {
+        "algorithm_time": 0.018577412,
+        "cost": 2300,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 2300.0,
+        "intervals": 377,
+        "iteration": 5,
+        "lb": 2300,
+        "resource_constraints": 20,
+        "sol_time": 51.213815000000004,
+        "solver_name": "MipDdd",
+        "solver_time": 0.032448897,
+        "status": "ok",
+        "total_time": 0.051025883,
+        "travel_constraints": 358,
+        "ub": 2300
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 13.571428298950195,
+    "conflicting_visit_pairs": 150,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 68,
+    "name": "stationB9",
+    "solves": [
+      {
+        "algorithm_time": 0.028378394,
+        "cost": 12006,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 12006.0,
+        "intervals": 687,
+        "iteration": 5,
+        "lb": 12006,
+        "resource_constraints": 91,
+        "sol_time": 87.806061,
+        "solver_name": "MipDdd",
+        "solver_time": 0.059211444,
+        "status": "ok",
+        "total_time": 0.087589493,
+        "travel_constraints": 652,
+        "ub": 12006
+      }
+    ],
+    "trains": 7
+  },
+  {
+    "avg_tracks": 12.857142448425293,
+    "conflicting_visit_pairs": 126,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 69,
+    "name": "stationB10",
+    "solves": [
+      {
+        "algorithm_time": 0.006710576,
+        "cost": 8761,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 8761.0,
+        "intervals": 291,
+        "iteration": 2,
+        "lb": 8761,
+        "resource_constraints": 4,
+        "sol_time": 8.535509,
+        "solver_name": "MipDdd",
+        "solver_time": 0.001702253,
+        "status": "ok",
+        "total_time": 0.008412558,
+        "travel_constraints": 278,
+        "ub": 8761
+      }
+    ],
+    "trains": 7
+  },
+  {
+    "avg_tracks": 15.399999618530273,
+    "conflicting_visit_pairs": 3202,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 70,
+    "name": "stationB11",
+    "solves": [
+      {
+        "algorithm_time": 0.19144158900000008,
+        "cost": 72973,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 72973.0,
+        "intervals": 3613,
+        "iteration": 8,
+        "lb": 72973,
+        "resource_constraints": 500,
+        "sol_time": 6391.198539999999,
+        "solver_name": "MipDdd",
+        "solver_time": 6.199351554,
+        "status": "ok",
+        "total_time": 6.390791763,
+        "travel_constraints": 3449,
+        "ub": 72973
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 16.214284896850586,
+    "conflicting_visit_pairs": 970,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 71,
+    "name": "stationB12",
+    "solves": [
+      {
+        "algorithm_time": 0.12787550099999967,
+        "cost": 16909,
+        "delay_cost_type": "Continuous",
+        "internal_cost": 16909.0,
+        "intervals": 2020,
+        "iteration": 9,
+        "lb": 16909,
+        "resource_constraints": 846,
+        "sol_time": 3316.0316629999998,
+        "solver_name": "MipDdd",
+        "solver_time": 3.187832616,
+        "status": "ok",
+        "total_time": 3.315707546,
+        "travel_constraints": 1905,
+        "ub": 16909
+      }
+    ],
+    "trains": 14
+  }
+]

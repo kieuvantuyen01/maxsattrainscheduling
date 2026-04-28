@@ -1,0 +1,2012 @@
+[
+  {
+    "avg_tracks": 20.931034088134766,
+    "conflicting_visit_pairs": 5915,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 0,
+    "name": "origA1",
+    "solves": [
+      {
+        "algorithm_time": 0.059314045,
+        "cost": 34,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 34.0,
+        "intervals": 1887,
+        "iteration": 4,
+        "lb": 34,
+        "resource_constraints": 22,
+        "sol_time": 113.690341,
+        "solver_name": "MipDdd",
+        "solver_time": 0.053750364,
+        "status": "ok",
+        "total_time": 0.113064086,
+        "travel_constraints": 1834,
+        "ub": 34
+      }
+    ],
+    "trains": 29
+  },
+  {
+    "avg_tracks": 19.0,
+    "conflicting_visit_pairs": 3735,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 1,
+    "name": "origA2",
+    "solves": [
+      {
+        "algorithm_time": 0.07349757099999998,
+        "cost": 37,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 37.0,
+        "intervals": 2031,
+        "iteration": 6,
+        "lb": 37,
+        "resource_constraints": 104,
+        "sol_time": 230.079741,
+        "solver_name": "MipDdd",
+        "solver_time": 0.156182438,
+        "status": "ok",
+        "total_time": 0.229679475,
+        "travel_constraints": 1957,
+        "ub": 37
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 22.375,
+    "conflicting_visit_pairs": 2061,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 2,
+    "name": "origA3",
+    "solves": [
+      {
+        "algorithm_time": 0.048707776999999994,
+        "cost": 14,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 14.0,
+        "intervals": 1318,
+        "iteration": 6,
+        "lb": 14,
+        "resource_constraints": 16,
+        "sol_time": 99.014117,
+        "solver_name": "MipDdd",
+        "solver_time": 0.050120997,
+        "status": "ok",
+        "total_time": 0.098828399,
+        "travel_constraints": 1280,
+        "ub": 14
+      }
+    ],
+    "trains": 16
+  },
+  {
+    "avg_tracks": 19.214284896850586,
+    "conflicting_visit_pairs": 1175,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 3,
+    "name": "origA4",
+    "solves": [
+      {
+        "algorithm_time": 0.015624698000000001,
+        "cost": 22,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 22.0,
+        "intervals": 872,
+        "iteration": 2,
+        "lb": 22,
+        "resource_constraints": 10,
+        "sol_time": 19.524481,
+        "solver_name": "MipDdd",
+        "solver_time": 0.003724778,
+        "status": "ok",
+        "total_time": 0.019349095,
+        "travel_constraints": 846,
+        "ub": 22
+      }
+    ],
+    "trains": 14
+  },
+  {
+    "avg_tracks": 19.25,
+    "conflicting_visit_pairs": 876,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 4,
+    "name": "origA5",
+    "solves": [
+      {
+        "algorithm_time": 0.018830592,
+        "cost": 19,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 19.0,
+        "intervals": 732,
+        "iteration": 2,
+        "lb": 19,
+        "resource_constraints": 9,
+        "sol_time": 25.596664,
+        "solver_name": "MipDdd",
+        "solver_time": 0.006424135,
+        "status": "ok",
+        "total_time": 0.02525409,
+        "travel_constraints": 710,
+        "ub": 19
+      }
+    ],
+    "trains": 12
+  },
+  {
+    "avg_tracks": 18.625,
+    "conflicting_visit_pairs": 307,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 5,
+    "name": "origA6",
+    "solves": [
+      {
+        "algorithm_time": 0.008122221,
+        "cost": 14,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 14.0,
+        "intervals": 460,
+        "iteration": 2,
+        "lb": 14,
+        "resource_constraints": 4,
+        "sol_time": 9.040728,
+        "solver_name": "MipDdd",
+        "solver_time": 0.000807393,
+        "status": "ok",
+        "total_time": 0.008929167,
+        "travel_constraints": 446,
+        "ub": 14
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 12.625,
+    "conflicting_visit_pairs": 126,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 6,
+    "name": "origA7",
+    "solves": [
+      {
+        "algorithm_time": 0.0074666820000000005,
+        "cost": 15,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 15.0,
+        "intervals": 450,
+        "iteration": 2,
+        "lb": 15,
+        "resource_constraints": 7,
+        "sol_time": 13.695309,
+        "solver_name": "MipDdd",
+        "solver_time": 0.006068706,
+        "status": "ok",
+        "total_time": 0.013535017,
+        "travel_constraints": 432,
+        "ub": 15
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 19.214284896850586,
+    "conflicting_visit_pairs": 4877,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 7,
+    "name": "origA8",
+    "solves": [
+      {
+        "algorithm_time": 0.513850746000001,
+        "cost": 136,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 136.0,
+        "intervals": 6740,
+        "iteration": 11,
+        "lb": 136,
+        "resource_constraints": 1690,
+        "sol_time": 13821.263244000002,
+        "solver_name": "MipDdd",
+        "solver_time": 13.306093584,
+        "status": "ok",
+        "total_time": 13.819943922,
+        "travel_constraints": 6499,
+        "ub": 136
+      }
+    ],
+    "trains": 28
+  },
+  {
+    "avg_tracks": 20.049999237060547,
+    "conflicting_visit_pairs": 2616,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 8,
+    "name": "origA9",
+    "solves": [
+      {
+        "algorithm_time": 0.11569638500000001,
+        "cost": 40,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 40.0,
+        "intervals": 2244,
+        "iteration": 9,
+        "lb": 40,
+        "resource_constraints": 96,
+        "sol_time": 452.210917,
+        "solver_name": "MipDdd",
+        "solver_time": 0.336253862,
+        "status": "ok",
+        "total_time": 0.451949824,
+        "travel_constraints": 2169,
+        "ub": 40
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 18.176469802856445,
+    "conflicting_visit_pairs": 1632,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 9,
+    "name": "origA10",
+    "solves": [
+      {
+        "algorithm_time": 0.06136901600000001,
+        "cost": 33,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 33.0,
+        "intervals": 1501,
+        "iteration": 6,
+        "lb": 33,
+        "resource_constraints": 47,
+        "sol_time": 180.71434299999999,
+        "solver_name": "MipDdd",
+        "solver_time": 0.11914783,
+        "status": "ok",
+        "total_time": 0.180516394,
+        "travel_constraints": 1449,
+        "ub": 33
+      }
+    ],
+    "trains": 17
+  },
+  {
+    "avg_tracks": 19.83333396911621,
+    "conflicting_visit_pairs": 6162,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 10,
+    "name": "origA11",
+    "solves": [
+      {
+        "algorithm_time": 0.13587551399999998,
+        "cost": 25,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 25.0,
+        "intervals": 3160,
+        "iteration": 7,
+        "lb": 25,
+        "resource_constraints": 122,
+        "sol_time": 537.139484,
+        "solver_name": "MipDdd",
+        "solver_time": 0.400974819,
+        "status": "ok",
+        "total_time": 0.536849713,
+        "travel_constraints": 3060,
+        "ub": 25
+      }
+    ],
+    "trains": 30
+  },
+  {
+    "avg_tracks": 21.714284896850586,
+    "conflicting_visit_pairs": 6393,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 11,
+    "name": "origA12",
+    "solves": [
+      {
+        "algorithm_time": 0.13167802500000003,
+        "cost": 29,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 29.0,
+        "intervals": 3168,
+        "iteration": 7,
+        "lb": 29,
+        "resource_constraints": 85,
+        "sol_time": 1036.450817,
+        "solver_name": "MipDdd",
+        "solver_time": 0.904373487,
+        "status": "ok",
+        "total_time": 1.036050789,
+        "travel_constraints": 3065,
+        "ub": 29
+      }
+    ],
+    "trains": 28
+  },
+  {
+    "avg_tracks": 17.33333396911621,
+    "conflicting_visit_pairs": 2022,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 12,
+    "name": "origB1",
+    "solves": [
+      {
+        "algorithm_time": 0.025658821999999998,
+        "cost": 7,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 7.0,
+        "intervals": 798,
+        "iteration": 4,
+        "lb": 7,
+        "resource_constraints": 5,
+        "sol_time": 32.702593,
+        "solver_name": "MipDdd",
+        "solver_time": 0.006677069,
+        "status": "ok",
+        "total_time": 0.032335351,
+        "travel_constraints": 772,
+        "ub": 7
+      }
+    ],
+    "trains": 18
+  },
+  {
+    "avg_tracks": 14.800000190734863,
+    "conflicting_visit_pairs": 87,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 13,
+    "name": "origB2",
+    "solves": [
+      {
+        "algorithm_time": 0.005566805,
+        "cost": 5,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 5.0,
+        "intervals": 205,
+        "iteration": 2,
+        "lb": 5,
+        "resource_constraints": 1,
+        "sol_time": 6.217778,
+        "solver_name": "MipDdd",
+        "solver_time": 0.000547562,
+        "status": "ok",
+        "total_time": 0.006114004,
+        "travel_constraints": 198,
+        "ub": 5
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 16.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 20,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 14,
+    "name": "origB3",
+    "solves": [
+      {
+        "algorithm_time": 0.012204072,
+        "cost": 7,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 7.0,
+        "intervals": 425,
+        "iteration": 3,
+        "lb": 7,
+        "resource_constraints": 13,
+        "sol_time": 21.466882,
+        "solver_name": "MipDdd",
+        "solver_time": 0.00907751,
+        "status": "ok",
+        "total_time": 0.021281208,
+        "travel_constraints": 408,
+        "ub": 7
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.949999809265137,
+    "conflicting_visit_pairs": 2246,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 15,
+    "name": "origB4",
+    "solves": [
+      {
+        "algorithm_time": 0.023870540999999995,
+        "cost": 301,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 301.0,
+        "intervals": 968,
+        "iteration": 3,
+        "lb": 301,
+        "resource_constraints": 73,
+        "sol_time": 35.730027,
+        "solver_name": "MipDdd",
+        "solver_time": 0.011645437,
+        "status": "ok",
+        "total_time": 0.035515115,
+        "travel_constraints": 933,
+        "ub": 301
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 17.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 16,
+    "name": "origB5",
+    "solves": [
+      {
+        "algorithm_time": 0.007396235,
+        "cost": 2,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 2.0,
+        "intervals": 225,
+        "iteration": 2,
+        "lb": 2,
+        "resource_constraints": 1,
+        "sol_time": 8.174026,
+        "solver_name": "MipDdd",
+        "solver_time": 0.000603979,
+        "status": "ok",
+        "total_time": 0.007999684,
+        "travel_constraints": 218,
+        "ub": 2
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.199999809265137,
+    "conflicting_visit_pairs": 93,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 17,
+    "name": "origB6",
+    "solves": [
+      {
+        "algorithm_time": 0.006282407,
+        "cost": 2,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 2.0,
+        "intervals": 199,
+        "iteration": 2,
+        "lb": 2,
+        "resource_constraints": 1,
+        "sol_time": 6.988912,
+        "solver_name": "MipDdd",
+        "solver_time": 0.000577625,
+        "status": "ok",
+        "total_time": 0.006859552,
+        "travel_constraints": 192,
+        "ub": 2
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.25,
+    "conflicting_visit_pairs": 2865,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 18,
+    "name": "origB7",
+    "solves": [
+      {
+        "algorithm_time": 0.05278585000000002,
+        "cost": 370,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 370.0,
+        "intervals": 1752,
+        "iteration": 4,
+        "lb": 370,
+        "resource_constraints": 882,
+        "sol_time": 181.808521,
+        "solver_name": "MipDdd",
+        "solver_time": 0.128729617,
+        "status": "ok",
+        "total_time": 0.181515068,
+        "travel_constraints": 1676,
+        "ub": 370
+      }
+    ],
+    "trains": 24
+  },
+  {
+    "avg_tracks": 13.399999618530273,
+    "conflicting_visit_pairs": 72,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 19,
+    "name": "origB8",
+    "solves": [
+      {
+        "algorithm_time": 0.004155653,
+        "cost": 6,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 6.0,
+        "intervals": 181,
+        "iteration": 2,
+        "lb": 6,
+        "resource_constraints": 1,
+        "sol_time": 4.698363,
+        "solver_name": "MipDdd",
+        "solver_time": 0.000466768,
+        "status": "ok",
+        "total_time": 0.004622174,
+        "travel_constraints": 174,
+        "ub": 6
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 13.571428298950195,
+    "conflicting_visit_pairs": 150,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 20,
+    "name": "origB9",
+    "solves": [
+      {
+        "algorithm_time": 0.006189531000000001,
+        "cost": 35,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 35.0,
+        "intervals": 427,
+        "iteration": 2,
+        "lb": 35,
+        "resource_constraints": 10,
+        "sol_time": 12.294626,
+        "solver_name": "MipDdd",
+        "solver_time": 0.00597801,
+        "status": "ok",
+        "total_time": 0.012167072,
+        "travel_constraints": 410,
+        "ub": 35
+      }
+    ],
+    "trains": 7
+  },
+  {
+    "avg_tracks": 11.375,
+    "conflicting_visit_pairs": 130,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 21,
+    "name": "origB10",
+    "solves": [
+      {
+        "algorithm_time": 0.00567543,
+        "cost": 34,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 34.0,
+        "intervals": 452,
+        "iteration": 2,
+        "lb": 34,
+        "resource_constraints": 14,
+        "sol_time": 9.532756,
+        "solver_name": "MipDdd",
+        "solver_time": 0.003742602,
+        "status": "ok",
+        "total_time": 0.00941772,
+        "travel_constraints": 432,
+        "ub": 34
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 15.399999618530273,
+    "conflicting_visit_pairs": 3202,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 22,
+    "name": "origB11",
+    "solves": [
+      {
+        "algorithm_time": 3.4274297119999915,
+        "cost": 425,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 425.0,
+        "intervals": 4025,
+        "iteration": 48,
+        "lb": 425,
+        "resource_constraints": 20875,
+        "sol_time": 101805.882719,
+        "solver_name": "MipDdd",
+        "solver_time": 98.376910824,
+        "status": "ok",
+        "total_time": 101.804340109,
+        "travel_constraints": 3779,
+        "ub": 425
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 16.214284896850586,
+    "conflicting_visit_pairs": 970,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 23,
+    "name": "origB12",
+    "solves": [
+      {
+        "algorithm_time": 0.011061765,
+        "cost": 6,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 6.0,
+        "intervals": 604,
+        "iteration": 2,
+        "lb": 6,
+        "resource_constraints": 5,
+        "sol_time": 12.149283,
+        "solver_name": "MipDdd",
+        "solver_time": 0.000953933,
+        "status": "ok",
+        "total_time": 0.012015423,
+        "travel_constraints": 584,
+        "ub": 6
+      }
+    ],
+    "trains": 14
+  },
+  {
+    "avg_tracks": 20.931034088134766,
+    "conflicting_visit_pairs": 5915,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 24,
+    "name": "trackA1",
+    "solves": [
+      {
+        "algorithm_time": 0.336018567,
+        "cost": 60,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 60.0,
+        "intervals": 5119,
+        "iteration": 9,
+        "lb": 60,
+        "resource_constraints": 426,
+        "sol_time": 1528.496844,
+        "solver_name": "MipDdd",
+        "solver_time": 1.1920628070000001,
+        "status": "ok",
+        "total_time": 1.528081029,
+        "travel_constraints": 4958,
+        "ub": 60
+      }
+    ],
+    "trains": 29
+  },
+  {
+    "avg_tracks": 19.0,
+    "conflicting_visit_pairs": 3735,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 25,
+    "name": "trackA2",
+    "solves": [
+      {
+        "algorithm_time": 0.13636477000000014,
+        "cost": 48,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 48.0,
+        "intervals": 3729,
+        "iteration": 6,
+        "lb": 48,
+        "resource_constraints": 292,
+        "sol_time": 2008.0602390000001,
+        "solver_name": "MipDdd",
+        "solver_time": 1.871350171,
+        "status": "ok",
+        "total_time": 2.007714556,
+        "travel_constraints": 3597,
+        "ub": 48
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 22.375,
+    "conflicting_visit_pairs": 2061,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 26,
+    "name": "trackA3",
+    "solves": [
+      {
+        "algorithm_time": 0.09987850300000001,
+        "cost": 18,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 18.0,
+        "intervals": 2692,
+        "iteration": 6,
+        "lb": 18,
+        "resource_constraints": 168,
+        "sol_time": 520.48588,
+        "solver_name": "MipDdd",
+        "solver_time": 0.420282401,
+        "status": "ok",
+        "total_time": 0.5201605,
+        "travel_constraints": 2606,
+        "ub": 18
+      }
+    ],
+    "trains": 16
+  },
+  {
+    "avg_tracks": 19.214284896850586,
+    "conflicting_visit_pairs": 1175,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 27,
+    "name": "trackA4",
+    "solves": [
+      {
+        "algorithm_time": 0.054185554999999996,
+        "cost": 18,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 18.0,
+        "intervals": 1646,
+        "iteration": 5,
+        "lb": 18,
+        "resource_constraints": 74,
+        "sol_time": 180.424465,
+        "solver_name": "MipDdd",
+        "solver_time": 0.12597979,
+        "status": "ok",
+        "total_time": 0.180164908,
+        "travel_constraints": 1596,
+        "ub": 18
+      }
+    ],
+    "trains": 14
+  },
+  {
+    "avg_tracks": 19.25,
+    "conflicting_visit_pairs": 876,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 28,
+    "name": "trackA5",
+    "solves": [
+      {
+        "algorithm_time": 0.030753309999999992,
+        "cost": 19,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 19.0,
+        "intervals": 1290,
+        "iteration": 4,
+        "lb": 19,
+        "resource_constraints": 72,
+        "sol_time": 110.212345,
+        "solver_name": "MipDdd",
+        "solver_time": 0.079190884,
+        "status": "ok",
+        "total_time": 0.109943787,
+        "travel_constraints": 1245,
+        "ub": 19
+      }
+    ],
+    "trains": 12
+  },
+  {
+    "avg_tracks": 18.625,
+    "conflicting_visit_pairs": 307,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 29,
+    "name": "trackA6",
+    "solves": [
+      {
+        "algorithm_time": 0.009354491999999999,
+        "cost": 11,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 11.0,
+        "intervals": 552,
+        "iteration": 2,
+        "lb": 11,
+        "resource_constraints": 6,
+        "sol_time": 12.608080000000001,
+        "solver_name": "MipDdd",
+        "solver_time": 0.003119068,
+        "status": "ok",
+        "total_time": 0.012473019,
+        "travel_constraints": 534,
+        "ub": 11
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 12.625,
+    "conflicting_visit_pairs": 126,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 30,
+    "name": "trackA7",
+    "solves": [
+      {
+        "algorithm_time": 0.011936725,
+        "cost": 10,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 10.0,
+        "intervals": 476,
+        "iteration": 3,
+        "lb": 10,
+        "resource_constraints": 10,
+        "sol_time": 24.592493,
+        "solver_name": "MipDdd",
+        "solver_time": 0.012468169,
+        "status": "ok",
+        "total_time": 0.024404398,
+        "travel_constraints": 458,
+        "ub": 10
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 19.88888931274414,
+    "conflicting_visit_pairs": 4862,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 31,
+    "name": "trackA8",
+    "solves": [
+      {
+        "algorithm_time": 1.0085115469999977,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 143.0,
+        "intervals": 12489,
+        "iteration": 10,
+        "lb": 143,
+        "resource_constraints": 12327,
+        "sol_time": 120182.37085200001,
+        "solver_name": "MipDdd",
+        "solver_time": 119.17064015,
+        "status": "timeout",
+        "total_time": 120.179149715,
+        "travel_constraints": 12032,
+        "ub": 163
+      }
+    ],
+    "trains": 27
+  },
+  {
+    "avg_tracks": 20.049999237060547,
+    "conflicting_visit_pairs": 2616,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 32,
+    "name": "trackA9",
+    "solves": [
+      {
+        "algorithm_time": 0.16776764799999988,
+        "cost": 43,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 43.0,
+        "intervals": 3776,
+        "iteration": 7,
+        "lb": 43,
+        "resource_constraints": 622,
+        "sol_time": 4373.666846,
+        "solver_name": "MipDdd",
+        "solver_time": 4.204105017,
+        "status": "ok",
+        "total_time": 4.371872278,
+        "travel_constraints": 3641,
+        "ub": 43
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 18.176469802856445,
+    "conflicting_visit_pairs": 1632,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 33,
+    "name": "trackA10",
+    "solves": [
+      {
+        "algorithm_time": 0.017875946999999996,
+        "cost": 33,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 33.0,
+        "intervals": 1263,
+        "iteration": 2,
+        "lb": 33,
+        "resource_constraints": 48,
+        "sol_time": 32.708655,
+        "solver_name": "MipDdd",
+        "solver_time": 0.014597944,
+        "status": "ok",
+        "total_time": 0.032473267,
+        "travel_constraints": 1223,
+        "ub": 33
+      }
+    ],
+    "trains": 17
+  },
+  {
+    "avg_tracks": 20.482759475708008,
+    "conflicting_visit_pairs": 6144,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 34,
+    "name": "trackA11",
+    "solves": [
+      {
+        "algorithm_time": 1.019994722000007,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 86.0,
+        "intervals": 13875,
+        "iteration": 9,
+        "lb": 86,
+        "resource_constraints": 15696,
+        "sol_time": 120214.51758700001,
+        "solver_name": "MipDdd",
+        "solver_time": 119.19076792,
+        "status": "timeout",
+        "total_time": 120.210762132,
+        "travel_constraints": 13331,
+        "ub": 136
+      }
+    ],
+    "trains": 29
+  },
+  {
+    "avg_tracks": 21.714284896850586,
+    "conflicting_visit_pairs": 6393,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 35,
+    "name": "trackA12",
+    "solves": [
+      {
+        "algorithm_time": 0.7999201429999943,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 94.0,
+        "intervals": 13548,
+        "iteration": 8,
+        "lb": 94,
+        "resource_constraints": 14751,
+        "sol_time": 120216.33576,
+        "solver_name": "MipDdd",
+        "solver_time": 119.413351632,
+        "status": "timeout",
+        "total_time": 120.213270996,
+        "travel_constraints": 13029,
+        "ub": 164
+      }
+    ],
+    "trains": 28
+  },
+  {
+    "avg_tracks": 17.33333396911621,
+    "conflicting_visit_pairs": 2022,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 36,
+    "name": "trackB1",
+    "solves": [
+      {
+        "algorithm_time": 0.059182752000000005,
+        "cost": 14,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 14.0,
+        "intervals": 1868,
+        "iteration": 5,
+        "lb": 14,
+        "resource_constraints": 120,
+        "sol_time": 180.595203,
+        "solver_name": "MipDdd",
+        "solver_time": 0.118982951,
+        "status": "ok",
+        "total_time": 0.178165123,
+        "travel_constraints": 1799,
+        "ub": 14
+      }
+    ],
+    "trains": 18
+  },
+  {
+    "avg_tracks": 14.800000190734863,
+    "conflicting_visit_pairs": 87,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 37,
+    "name": "trackB2",
+    "solves": [
+      {
+        "algorithm_time": 0.009839792999999998,
+        "cost": 26,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 26.0,
+        "intervals": 339,
+        "iteration": 3,
+        "lb": 26,
+        "resource_constraints": 22,
+        "sol_time": 19.336642,
+        "solver_name": "MipDdd",
+        "solver_time": 0.009355698,
+        "status": "ok",
+        "total_time": 0.019195135,
+        "travel_constraints": 321,
+        "ub": 26
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 16.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 20,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 38,
+    "name": "trackB3",
+    "solves": [
+      {
+        "algorithm_time": 0.007189166,
+        "cost": 4,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 4.0,
+        "intervals": 355,
+        "iteration": 2,
+        "lb": 4,
+        "resource_constraints": 9,
+        "sol_time": 9.52577,
+        "solver_name": "MipDdd",
+        "solver_time": 0.002222992,
+        "status": "ok",
+        "total_time": 0.009411825,
+        "travel_constraints": 342,
+        "ub": 4
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.949999809265137,
+    "conflicting_visit_pairs": 2246,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 39,
+    "name": "trackB4",
+    "solves": [
+      {
+        "algorithm_time": 0.37876832400000104,
+        "cost": 341,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 341.0,
+        "intervals": 3876,
+        "iteration": 14,
+        "lb": 341,
+        "resource_constraints": 1602,
+        "sol_time": 9276.445580000001,
+        "solver_name": "MipDdd",
+        "solver_time": 8.897223997,
+        "status": "ok",
+        "total_time": 9.275991812000001,
+        "travel_constraints": 3714,
+        "ub": 341
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 17.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 40,
+    "name": "trackB5",
+    "solves": [
+      {
+        "algorithm_time": 0.025870854,
+        "cost": 11,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 11.0,
+        "intervals": 611,
+        "iteration": 5,
+        "lb": 11,
+        "resource_constraints": 59,
+        "sol_time": 89.42246800000001,
+        "solver_name": "MipDdd",
+        "solver_time": 0.063392334,
+        "status": "ok",
+        "total_time": 0.089262831,
+        "travel_constraints": 584,
+        "ub": 11
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.199999809265137,
+    "conflicting_visit_pairs": 93,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 41,
+    "name": "trackB6",
+    "solves": [
+      {
+        "algorithm_time": 0.005552446999999999,
+        "cost": 2,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 2.0,
+        "intervals": 279,
+        "iteration": 2,
+        "lb": 2,
+        "resource_constraints": 5,
+        "sol_time": 6.598789,
+        "solver_name": "MipDdd",
+        "solver_time": 0.000939182,
+        "status": "ok",
+        "total_time": 0.006491378,
+        "travel_constraints": 269,
+        "ub": 2
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.25,
+    "conflicting_visit_pairs": 2865,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 42,
+    "name": "trackB7",
+    "solves": [
+      {
+        "algorithm_time": 0.18027636599999997,
+        "cost": 318,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 318.0,
+        "intervals": 2950,
+        "iteration": 9,
+        "lb": 318,
+        "resource_constraints": 411,
+        "sol_time": 992.628145,
+        "solver_name": "MipDdd",
+        "solver_time": 0.812025485,
+        "status": "ok",
+        "total_time": 0.992301513,
+        "travel_constraints": 2819,
+        "ub": 318
+      }
+    ],
+    "trains": 24
+  },
+  {
+    "avg_tracks": 13.399999618530273,
+    "conflicting_visit_pairs": 72,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 43,
+    "name": "trackB8",
+    "solves": [
+      {
+        "algorithm_time": 0.016136592999999998,
+        "cost": 12,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 12.0,
+        "intervals": 385,
+        "iteration": 5,
+        "lb": 12,
+        "resource_constraints": 24,
+        "sol_time": 39.870979,
+        "solver_name": "MipDdd",
+        "solver_time": 0.023523938,
+        "status": "ok",
+        "total_time": 0.039660056,
+        "travel_constraints": 365,
+        "ub": 12
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 13.571428298950195,
+    "conflicting_visit_pairs": 150,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 44,
+    "name": "trackB9",
+    "solves": [
+      {
+        "algorithm_time": 0.028020884999999995,
+        "cost": 51,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 51.0,
+        "intervals": 773,
+        "iteration": 6,
+        "lb": 51,
+        "resource_constraints": 161,
+        "sol_time": 137.810208,
+        "solver_name": "MipDdd",
+        "solver_time": 0.109606807,
+        "status": "ok",
+        "total_time": 0.137627287,
+        "travel_constraints": 735,
+        "ub": 51
+      }
+    ],
+    "trains": 7
+  },
+  {
+    "avg_tracks": 12.857142448425293,
+    "conflicting_visit_pairs": 126,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 45,
+    "name": "trackB10",
+    "solves": [
+      {
+        "algorithm_time": 0.005480952,
+        "cost": 41,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 41.0,
+        "intervals": 291,
+        "iteration": 2,
+        "lb": 41,
+        "resource_constraints": 3,
+        "sol_time": 6.1651620000000005,
+        "solver_name": "MipDdd",
+        "solver_time": 0.000581736,
+        "status": "ok",
+        "total_time": 0.006062433,
+        "travel_constraints": 278,
+        "ub": 41
+      }
+    ],
+    "trains": 7
+  },
+  {
+    "avg_tracks": 15.399999618530273,
+    "conflicting_visit_pairs": 3202,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 46,
+    "name": "trackB11",
+    "solves": [
+      {
+        "algorithm_time": 0.1934091590000001,
+        "cost": 391,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 391.0,
+        "intervals": 2969,
+        "iteration": 10,
+        "lb": 391,
+        "resource_constraints": 405,
+        "sol_time": 1007.199081,
+        "solver_name": "MipDdd",
+        "solver_time": 0.813436159,
+        "status": "ok",
+        "total_time": 1.00684493,
+        "travel_constraints": 2845,
+        "ub": 391
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 16.214284896850586,
+    "conflicting_visit_pairs": 970,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 47,
+    "name": "trackB12",
+    "solves": [
+      {
+        "algorithm_time": 0.30102291100000045,
+        "cost": 88,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 88.0,
+        "intervals": 2492,
+        "iteration": 15,
+        "lb": 88,
+        "resource_constraints": 1972,
+        "sol_time": 6155.7688769999995,
+        "solver_name": "MipDdd",
+        "solver_time": 5.8543042199999995,
+        "status": "ok",
+        "total_time": 6.155326786,
+        "travel_constraints": 2328,
+        "ub": 88
+      }
+    ],
+    "trains": 14
+  },
+  {
+    "avg_tracks": 20.931034088134766,
+    "conflicting_visit_pairs": 5915,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 48,
+    "name": "stationA1",
+    "solves": [
+      {
+        "algorithm_time": 0.8876170499999958,
+        "cost": 81,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 81.0,
+        "intervals": 8383,
+        "iteration": 15,
+        "lb": 81,
+        "resource_constraints": 1631,
+        "sol_time": 45127.450392,
+        "solver_name": "MipDdd",
+        "solver_time": 44.238000384,
+        "status": "ok",
+        "total_time": 45.125617028,
+        "travel_constraints": 8082,
+        "ub": 81
+      }
+    ],
+    "trains": 29
+  },
+  {
+    "avg_tracks": 19.0,
+    "conflicting_visit_pairs": 3735,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 49,
+    "name": "stationA2",
+    "solves": [
+      {
+        "algorithm_time": 0.2161156550000003,
+        "cost": 59,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 59.0,
+        "intervals": 4883,
+        "iteration": 7,
+        "lb": 59,
+        "resource_constraints": 764,
+        "sol_time": 6012.985435,
+        "solver_name": "MipDdd",
+        "solver_time": 5.796337736,
+        "status": "ok",
+        "total_time": 6.012452729,
+        "travel_constraints": 4696,
+        "ub": 59
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 22.375,
+    "conflicting_visit_pairs": 2061,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 50,
+    "name": "stationA3",
+    "solves": [
+      {
+        "algorithm_time": 0.32909583700000056,
+        "cost": 26,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 26.0,
+        "intervals": 4312,
+        "iteration": 12,
+        "lb": 26,
+        "resource_constraints": 691,
+        "sol_time": 9821.387469,
+        "solver_name": "MipDdd",
+        "solver_time": 9.49151109,
+        "status": "ok",
+        "total_time": 9.820606255,
+        "travel_constraints": 4155,
+        "ub": 26
+      }
+    ],
+    "trains": 16
+  },
+  {
+    "avg_tracks": 19.214284896850586,
+    "conflicting_visit_pairs": 1175,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 51,
+    "name": "stationA4",
+    "solves": [
+      {
+        "algorithm_time": 0.06086706799999997,
+        "cost": 22,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 22.0,
+        "intervals": 1822,
+        "iteration": 5,
+        "lb": 22,
+        "resource_constraints": 114,
+        "sol_time": 289.333002,
+        "solver_name": "MipDdd",
+        "solver_time": 0.228082365,
+        "status": "ok",
+        "total_time": 0.2889489,
+        "travel_constraints": 1758,
+        "ub": 22
+      }
+    ],
+    "trains": 14
+  },
+  {
+    "avg_tracks": 19.25,
+    "conflicting_visit_pairs": 876,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 52,
+    "name": "stationA5",
+    "solves": [
+      {
+        "algorithm_time": 0.023292577999999994,
+        "cost": 23,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 23.0,
+        "intervals": 1188,
+        "iteration": 3,
+        "lb": 23,
+        "resource_constraints": 51,
+        "sol_time": 73.450977,
+        "solver_name": "MipDdd",
+        "solver_time": 0.049895464,
+        "status": "ok",
+        "total_time": 0.073187614,
+        "travel_constraints": 1146,
+        "ub": 23
+      }
+    ],
+    "trains": 12
+  },
+  {
+    "avg_tracks": 18.625,
+    "conflicting_visit_pairs": 307,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 53,
+    "name": "stationA6",
+    "solves": [
+      {
+        "algorithm_time": 0.0066177580000000005,
+        "cost": 15,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 15.0,
+        "intervals": 490,
+        "iteration": 2,
+        "lb": 15,
+        "resource_constraints": 7,
+        "sol_time": 11.036268,
+        "solver_name": "MipDdd",
+        "solver_time": 0.004290902,
+        "status": "ok",
+        "total_time": 0.010908164,
+        "travel_constraints": 474,
+        "ub": 15
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 12.625,
+    "conflicting_visit_pairs": 126,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 54,
+    "name": "stationA7",
+    "solves": [
+      {
+        "algorithm_time": 0.010136698999999996,
+        "cost": 16,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 16.0,
+        "intervals": 650,
+        "iteration": 3,
+        "lb": 16,
+        "resource_constraints": 25,
+        "sol_time": 35.192271999999996,
+        "solver_name": "MipDdd",
+        "solver_time": 0.024898947,
+        "status": "ok",
+        "total_time": 0.035035366,
+        "travel_constraints": 624,
+        "ub": 16
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 19.88888931274414,
+    "conflicting_visit_pairs": 4862,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 55,
+    "name": "stationA8",
+    "solves": [
+      {
+        "algorithm_time": 0.8494083329999995,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 154.0,
+        "intervals": 12395,
+        "iteration": 9,
+        "lb": 154,
+        "resource_constraints": 12302,
+        "sol_time": 120184.908041,
+        "solver_name": "MipDdd",
+        "solver_time": 119.332064969,
+        "status": "timeout",
+        "total_time": 120.181472922,
+        "travel_constraints": 11919,
+        "ub": 174
+      }
+    ],
+    "trains": 27
+  },
+  {
+    "avg_tracks": 20.049999237060547,
+    "conflicting_visit_pairs": 2616,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 56,
+    "name": "stationA9",
+    "solves": [
+      {
+        "algorithm_time": 0.5036341689999997,
+        "cost": 49,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 49.0,
+        "intervals": 4168,
+        "iteration": 9,
+        "lb": 49,
+        "resource_constraints": 583,
+        "sol_time": 7213.375438,
+        "solver_name": "MipDdd",
+        "solver_time": 6.709285954,
+        "status": "ok",
+        "total_time": 7.212919224,
+        "travel_constraints": 4008,
+        "ub": 49
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 18.176469802856445,
+    "conflicting_visit_pairs": 1632,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 57,
+    "name": "stationA10",
+    "solves": [
+      {
+        "algorithm_time": 0.04521487099999999,
+        "cost": 41,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 41.0,
+        "intervals": 1961,
+        "iteration": 4,
+        "lb": 41,
+        "resource_constraints": 234,
+        "sol_time": 216.164965,
+        "solver_name": "MipDdd",
+        "solver_time": 0.170684147,
+        "status": "ok",
+        "total_time": 0.215898722,
+        "travel_constraints": 1886,
+        "ub": 41
+      }
+    ],
+    "trains": 17
+  },
+  {
+    "avg_tracks": 20.482759475708008,
+    "conflicting_visit_pairs": 6144,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 58,
+    "name": "stationA11",
+    "solves": [
+      {
+        "algorithm_time": 0.7506204920000101,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 93.0,
+        "intervals": 12695,
+        "iteration": 7,
+        "lb": 93,
+        "resource_constraints": 13088,
+        "sol_time": 120267.915679,
+        "solver_name": "MipDdd",
+        "solver_time": 119.513821239,
+        "status": "timeout",
+        "total_time": 120.264441248,
+        "travel_constraints": 12181,
+        "ub": 133
+      }
+    ],
+    "trains": 29
+  },
+  {
+    "avg_tracks": 21.714284896850586,
+    "conflicting_visit_pairs": 6393,
+    "conflicts": 33,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 59,
+    "name": "stationA12",
+    "solves": [
+      {
+        "algorithm_time": 0.8992720709999986,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 101.0,
+        "intervals": 13794,
+        "iteration": 8,
+        "lb": 101,
+        "resource_constraints": 17337,
+        "sol_time": 120229.451959,
+        "solver_name": "MipDdd",
+        "solver_time": 119.325693139,
+        "status": "timeout",
+        "total_time": 120.22496477,
+        "travel_constraints": 13229,
+        "ub": 158
+      }
+    ],
+    "trains": 28
+  },
+  {
+    "avg_tracks": 17.33333396911621,
+    "conflicting_visit_pairs": 2022,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 60,
+    "name": "stationB1",
+    "solves": [
+      {
+        "algorithm_time": 0.09096071500000003,
+        "cost": 30,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 30.0,
+        "intervals": 2702,
+        "iteration": 6,
+        "lb": 30,
+        "resource_constraints": 255,
+        "sol_time": 2388.603509,
+        "solver_name": "MipDdd",
+        "solver_time": 2.29572808,
+        "status": "ok",
+        "total_time": 2.38668847,
+        "travel_constraints": 2584,
+        "ub": 30
+      }
+    ],
+    "trains": 18
+  },
+  {
+    "avg_tracks": 14.800000190734863,
+    "conflicting_visit_pairs": 87,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 61,
+    "name": "stationB2",
+    "solves": [
+      {
+        "algorithm_time": 0.009663342,
+        "cost": 29,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 29.0,
+        "intervals": 353,
+        "iteration": 3,
+        "lb": 29,
+        "resource_constraints": 22,
+        "sol_time": 24.200858,
+        "solver_name": "MipDdd",
+        "solver_time": 0.014366266,
+        "status": "ok",
+        "total_time": 0.024029112,
+        "travel_constraints": 334,
+        "ub": 29
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 16.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 20,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 62,
+    "name": "stationB3",
+    "solves": [
+      {
+        "algorithm_time": 0.010597320999999998,
+        "cost": 6,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 6.0,
+        "intervals": 467,
+        "iteration": 3,
+        "lb": 6,
+        "resource_constraints": 14,
+        "sol_time": 20.564571,
+        "solver_name": "MipDdd",
+        "solver_time": 0.009779516,
+        "status": "ok",
+        "total_time": 0.020376453,
+        "travel_constraints": 448,
+        "ub": 6
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.949999809265137,
+    "conflicting_visit_pairs": 2246,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 63,
+    "name": "stationB4",
+    "solves": [
+      {
+        "algorithm_time": 0.327006982,
+        "cost": 355,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 355.0,
+        "intervals": 2606,
+        "iteration": 6,
+        "lb": 355,
+        "resource_constraints": 281,
+        "sol_time": 1032.39038,
+        "solver_name": "MipDdd",
+        "solver_time": 0.705043513,
+        "status": "ok",
+        "total_time": 1.032050034,
+        "travel_constraints": 2492,
+        "ub": 355
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 17.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 64,
+    "name": "stationB5",
+    "solves": [
+      {
+        "algorithm_time": 0.03160434,
+        "cost": 10,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 10.0,
+        "intervals": 567,
+        "iteration": 6,
+        "lb": 10,
+        "resource_constraints": 43,
+        "sol_time": 84.868752,
+        "solver_name": "MipDdd",
+        "solver_time": 0.053069785,
+        "status": "ok",
+        "total_time": 0.084673744,
+        "travel_constraints": 542,
+        "ub": 10
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.199999809265137,
+    "conflicting_visit_pairs": 93,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 65,
+    "name": "stationB6",
+    "solves": [
+      {
+        "algorithm_time": 0.006971786000000001,
+        "cost": 5,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 5.0,
+        "intervals": 283,
+        "iteration": 2,
+        "lb": 5,
+        "resource_constraints": 4,
+        "sol_time": 9.213462999999999,
+        "solver_name": "MipDdd",
+        "solver_time": 0.002073567,
+        "status": "ok",
+        "total_time": 0.009045015,
+        "travel_constraints": 272,
+        "ub": 5
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.25,
+    "conflicting_visit_pairs": 2865,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 66,
+    "name": "stationB7",
+    "solves": [
+      {
+        "algorithm_time": 0.14421873499999993,
+        "cost": 339,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 339.0,
+        "intervals": 3416,
+        "iteration": 7,
+        "lb": 339,
+        "resource_constraints": 409,
+        "sol_time": 2543.994329,
+        "solver_name": "MipDdd",
+        "solver_time": 2.399359882,
+        "status": "ok",
+        "total_time": 2.54357815,
+        "travel_constraints": 3257,
+        "ub": 339
+      }
+    ],
+    "trains": 24
+  },
+  {
+    "avg_tracks": 13.399999618530273,
+    "conflicting_visit_pairs": 72,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 67,
+    "name": "stationB8",
+    "solves": [
+      {
+        "algorithm_time": 0.018291376,
+        "cost": 16,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 16.0,
+        "intervals": 377,
+        "iteration": 5,
+        "lb": 16,
+        "resource_constraints": 20,
+        "sol_time": 41.662369,
+        "solver_name": "MipDdd",
+        "solver_time": 0.023184384,
+        "status": "ok",
+        "total_time": 0.041475349,
+        "travel_constraints": 358,
+        "ub": 16
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 13.571428298950195,
+    "conflicting_visit_pairs": 150,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 68,
+    "name": "stationB9",
+    "solves": [
+      {
+        "algorithm_time": 0.00973812,
+        "cost": 70,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 70.0,
+        "intervals": 511,
+        "iteration": 3,
+        "lb": 70,
+        "resource_constraints": 35,
+        "sol_time": 22.950931,
+        "solver_name": "MipDdd",
+        "solver_time": 0.013066351,
+        "status": "ok",
+        "total_time": 0.022803962,
+        "travel_constraints": 486,
+        "ub": 70
+      }
+    ],
+    "trains": 7
+  },
+  {
+    "avg_tracks": 12.857142448425293,
+    "conflicting_visit_pairs": 126,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 69,
+    "name": "stationB10",
+    "solves": [
+      {
+        "algorithm_time": 0.00528106,
+        "cost": 53,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 53.0,
+        "intervals": 291,
+        "iteration": 2,
+        "lb": 53,
+        "resource_constraints": 4,
+        "sol_time": 6.517684999999999,
+        "solver_name": "MipDdd",
+        "solver_time": 0.001063769,
+        "status": "ok",
+        "total_time": 0.006344601,
+        "travel_constraints": 278,
+        "ub": 53
+      }
+    ],
+    "trains": 7
+  },
+  {
+    "avg_tracks": 15.399999618530273,
+    "conflicting_visit_pairs": 3202,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 70,
+    "name": "stationB11",
+    "solves": [
+      {
+        "algorithm_time": 0.17894791500000018,
+        "cost": 415,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 415.0,
+        "intervals": 3529,
+        "iteration": 8,
+        "lb": 415,
+        "resource_constraints": 434,
+        "sol_time": 4330.076486,
+        "solver_name": "MipDdd",
+        "solver_time": 4.150608181,
+        "status": "ok",
+        "total_time": 4.329555709,
+        "travel_constraints": 3364,
+        "ub": 415
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 16.214284896850586,
+    "conflicting_visit_pairs": 970,
+    "conflicts": 25,
+    "delay_cost_type": "InfiniteSteps180",
+    "index": 71,
+    "name": "stationB12",
+    "solves": [
+      {
+        "algorithm_time": 0.09652407399999996,
+        "cost": 98,
+        "delay_cost_type": "InfiniteSteps180",
+        "internal_cost": 98.0,
+        "intervals": 2064,
+        "iteration": 7,
+        "lb": 98,
+        "resource_constraints": 806,
+        "sol_time": 1183.763074,
+        "solver_name": "MipDdd",
+        "solver_time": 1.086913271,
+        "status": "ok",
+        "total_time": 1.183436822,
+        "travel_constraints": 1952,
+        "ub": 98
+      }
+    ],
+    "trains": 14
+  }
+]

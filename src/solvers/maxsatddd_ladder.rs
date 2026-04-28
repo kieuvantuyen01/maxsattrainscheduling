@@ -1247,6 +1247,13 @@ impl<L: satcoder::Lit> Occ<L> {
         let var = solver.new_var();
         self.delays.insert(idx, (var, t));
 
+        // Keep `incumbent_idx` valid after an insertion at/below it —
+        // otherwise `delays[incumbent_idx]` silently points to the new
+        // (wrong) timepoint, leading to travel-time violations at verify.
+        if idx <= self.incumbent_idx {
+            self.incumbent_idx += 1;
+        }
+
         if idx > 0 {
             solver.add_clause(vec![!var, self.delays[idx - 1].0]);
         }

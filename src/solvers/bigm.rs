@@ -6,7 +6,7 @@ use std::{
 use super::SolverError;
 use crate::{
     problem::{iter_infinite_staircase, DelayCostThresholds, DelayCostType, Problem},
-    solvers::minimize,
+    solvers::{minimize, value_trace::ValueTrace},
 };
 const M: f64 = 2.0 * 6.0 * 3600.0;
 
@@ -305,6 +305,9 @@ fn solve(
     let mut solver_time = std::time::Duration::ZERO;
     let mut best_heur: Option<(i32, Vec<Vec<i32>>)> = None;
     let mut global_lb = 0;
+    let mut value_trace = ValueTrace::default();
+    let mut logged_lb: Option<i32> = None;
+    let mut logged_incumbent: Option<i32> = None;
     // println!("INSTANCE");
     loop {
         {
@@ -338,9 +341,11 @@ fn solve(
 
         let status = model.status().map_err(SolverError::GurobiError)?;
         if status == Status::TimeLimit {
-            let ub = best_heur.map(|(c, _)| c).unwrap_or(i32::MAX);
+            let ub = best_heur.as_ref().map(|(c, _)| *c).unwrap_or(i32::MAX);
             println!("TIMEOUT LB={} UB={}", global_lb, ub);
+            value_trace.timeout(start_time, global_lb, best_heur.as_ref().map(|(c, _)| *c), Some(iteration));
 
+            value_trace.emit(&mut output_stats, best_heur.as_ref().map(|(c, _)| *c));
             do_output_stats(
                 &mut output_stats,
                 refinement_iterations,
@@ -383,9 +388,21 @@ fn solve(
             .map_err(SolverError::GurobiError)?;
 
         global_lb = cost.round() as i32;
+        if logged_lb != Some(global_lb) {
+            value_trace.lower_bound(
+                start_time,
+                global_lb,
+                best_heur.as_ref().map(|(c, _)| *c),
+                Some(iteration),
+                Some("gurobi_optimize"),
+            );
+            logged_lb = Some(global_lb);
+        }
         if cost.round() as i32 == best_heur.as_ref().map(|(c, _)| *c).unwrap_or(i32::MAX) {
             println!("TERMINATE HEURISTIC");
             println!("BIGM ITERATIONS {}", refinement_iterations);
+            value_trace.optimal(start_time, global_lb, Some(iteration));
+            value_trace.emit(&mut output_stats, Some(global_lb));
             do_output_stats(
                 &mut output_stats,
                 refinement_iterations,
@@ -459,6 +476,18 @@ fn solve(
                     println!("HEURISTIC UB=LB");
                     println!("TERMINATE HEURISTIC");
                     println!("BIGM ITERATIONS {}", refinement_iterations);
+                    if logged_incumbent != Some(ub_cost) {
+                        value_trace.incumbent(
+                            start_time,
+                            ub_cost,
+                            lb_cost,
+                            Some(iteration),
+                            Some("heuristic"),
+                        );
+                        logged_incumbent = Some(ub_cost);
+                    }
+                    value_trace.optimal(start_time, ub_cost, Some(iteration));
+                    value_trace.emit(&mut output_stats, Some(ub_cost));
                     do_output_stats(
                         &mut output_stats,
                         refinement_iterations,
@@ -477,6 +506,16 @@ fn solve(
 
                 if ub_cost < best_heur.as_ref().map(|(c, _)| *c).unwrap_or(i32::MAX) {
                     best_heur = Some((ub_cost, ub_sol));
+                    if logged_incumbent != Some(ub_cost) {
+                        value_trace.incumbent(
+                            start_time,
+                            ub_cost,
+                            lb_cost,
+                            Some(iteration),
+                            Some("heuristic"),
+                        );
+                        logged_incumbent = Some(ub_cost);
+                    }
                 }
             }
         }
@@ -590,6 +629,17 @@ fn solve(
                 refinement_iterations
             );
 
+            if logged_incumbent != Some(global_lb) {
+                value_trace.incumbent(
+                    start_time,
+                    global_lb,
+                    global_lb,
+                    Some(iteration),
+                    Some("final_solution"),
+                );
+            }
+            value_trace.optimal(start_time, global_lb, Some(iteration));
+            value_trace.emit(&mut output_stats, Some(global_lb));
             do_output_stats(
                 &mut output_stats,
                 refinement_iterations,
@@ -607,9 +657,6 @@ fn solve(
             // println!("MIP obj {}", mip_objective);
 
             // model.write("model_final.sol").unwrap();
-            let filename = format!("{}_model_final.lp", problem.name);
-            println!("SAVING {}", filename);
-            model.write(&filename).unwrap();
 
             // let mut solution = Vec::new();
             // for (train_idx, train_ts) in t_vars.iter().enumerate() {

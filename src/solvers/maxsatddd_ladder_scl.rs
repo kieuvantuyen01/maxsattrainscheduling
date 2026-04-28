@@ -86,7 +86,12 @@ pub struct SolveStats {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 struct ResourceCliqueRowKey {
-    members: Vec<(VisitId, i32)>,
+    // (visit_id, start, next_incumbent_time). Includes next_incumbent so that
+    // when the next-visit's incumbent shifts (changing m_end_lits semantics),
+    // the key changes and a fresh tight constraint is added. This avoids the
+    // soundness bug where a loose early-iteration constraint would block
+    // re-processing the same conflict at later iterations.
+    members: Vec<(VisitId, i32, i32)>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -317,6 +322,7 @@ impl<L: satcoder::Lit + Copy + 'static> BinaryObjective<L> {
     }
 }
 
+#[allow(dead_code)]
 fn compute_initial_heuristic_upper_bound<L: satcoder::Lit>(
     mk_env: &impl Fn() -> grb::Env,
     problem: &Problem,
@@ -503,6 +509,16 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug + 'st
             resource_visits[visit.resource_id].push(visit_id);
             touched_intervals.push(visit_id);
             new_time_points.push((visit_id, true.into(), earliest));
+
+            for t in problem.trains[train_idx]
+                .visit_cost_threshold_times(delay_cost_type, visit_idx, earliest)
+            {
+                let (var, is_new) = occupations[visit_id].time_point(&mut solver, t);
+                if is_new {
+                    n_timepoints += 1;
+                    new_time_points.push((visit_id, var, t));
+                }
+            }
         }
     }
 
@@ -513,8 +529,6 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug + 'st
 
     let mut total_cost = 0;
     let mut soft_constraints = HashMap::new();
-    let mut binary_objective = BinaryObjective::new();
-    let mut objective_capacity = 0usize;
     let mut debug_actions = Vec::new();
     // let mut cost_var_names: HashMap<Bool<L>, String> = HashMap::new();
 
@@ -563,28 +577,14 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug + 'st
         }
     }
 
+    // Async heuristic: instead of blocking on initial heuristic computation
+    // at init (5-30s of Gurobi call time), spawn the heuristic thread
+    // immediately and let SAT solver start working in parallel. The heuristic
+    // result flows in via `heur_thread`'s channel during the main loop, where
+    // we update `best_heur` and inject solution timepoints when it arrives.
     const USE_HEURISTIC: bool = true;
-    let mut best_heur = if USE_HEURISTIC {
-        compute_initial_heuristic_upper_bound(&mk_env, problem, delay_cost_type, &occupations)?
-    } else {
-        None
-    };
+    let mut best_heur: Option<(i32, Vec<Vec<i32>>)> = None;
     let mut injected_heuristic_cost: Option<i32> = None;
-    if !settings.use_precedence_graph {
-        if let Some((ub_cost, ub_sol)) = best_heur.as_ref() {
-            inject_solution_timepoints_maxsat(
-                &mut solver,
-                problem,
-                &visits,
-                &mut occupations,
-                &mut new_time_points,
-                &mut fixed_prec_rows,
-                settings.use_scl_fixed_precedence,
-                ub_sol,
-            );
-            injected_heuristic_cost = Some(*ub_cost);
-        }
-    }
 
     let heur_thread = USE_HEURISTIC.then(|| {
         let (sol_in_tx, sol_in_rx) = std::sync::mpsc::channel();
@@ -658,6 +658,18 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug + 'st
                         best_heur = Some((ub_cost, ub_sol));
                     }
                 }
+
+                // NOTE: We intentionally do NOT inject heuristic solution
+                // timepoints here. Empirically, `inject_solution_timepoints_maxsat`
+                // causes formula bloat for the `Continuous` objective (each
+                // injected timepoint → cost var → CostTree growth → larger
+                // formula → slower SAT calls → more timeouts). Ladder
+                // (`maxsat_ddd_ladder`) also receives heuristic UB updates but
+                // does NOT inject, and outperforms ladder_scl on cont benchmarks
+                // because of this. We match that behavior: use the heuristic
+                // purely for UB tracking and the UB=LB termination check above.
+                // The fallback injection at core.len()==0 (later in the loop)
+                // is kept as a last-resort for edge cases.
             }
 
             let mut found_travel_time_conflict = false;
@@ -783,9 +795,26 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug + 'st
                 }
 
                 let mut retain_touched = vec![false; touched_intervals.len()];
-                let mut current_choice_lits: HashMap<(VisitId, i32, i32), Bool<L>> = HashMap::new();
+                // Per-iteration cache: (visit_id, tau+1) → active literal.
+                // Reused across cliques in the same iteration to share aux vars.
+                let mut active_lit_cache: HashMap<(VisitId, i32), Bool<L>> = HashMap::new();
+
+                // Collect all clique candidates across resource pairs first, then
+                // process them in severity order with a per-iteration budget.
+                let mut clique_candidates: Vec<(i64, Vec<ActiveInterval>, i32, usize, usize)> =
+                    Vec::new();
 
                 for (resource_a, resource_b) in relevant_resource_pairs.into_iter() {
+                    // Early filter: skip pairs where either resource has no visits.
+                    // Saves O(V) scan + allocation for empty resources.
+                    if resource_a >= resource_visits.len()
+                        || resource_b >= resource_visits.len()
+                        || resource_visits[resource_a].is_empty()
+                        || resource_visits[resource_b].is_empty()
+                    {
+                        continue;
+                    }
+
                     let mut group_intervals = Vec::new();
                     for &resource in [resource_a, resource_b].iter() {
                         if resource >= resource_visits.len() {
@@ -853,82 +882,153 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug + 'st
                             continue;
                         }
 
-                        let mut member_key: Vec<(VisitId, i32)> =
-                            members.iter().map(|m| (m.visit_id, m.start)).collect();
-                        member_key.sort_unstable_by_key(|(v, t)| (v.0, *t));
-                        let row_key = ResourceCliqueRowKey {
-                            members: member_key,
-                        };
-                        if !added_resource_clique_rows.insert(row_key) {
-                            continue;
-                        }
+                        // Severity = member_count * overlap_length. Prioritize large
+                        // cliques with long overlaps (most binding conflicts).
+                        let overlap_min_end = members.iter().map(|m| m.end).min().unwrap();
+                        let overlap_length = (overlap_min_end - tau).max(1) as i64;
+                        let severity = (members.len() as i64) * overlap_length;
 
+                        clique_candidates.push((
+                            severity,
+                            members,
+                            tau,
+                            resource_a,
+                            resource_b,
+                        ));
+                    }
+                }
+
+                // Sort by severity descending — process most "dangerous" cliques
+                // first. Do NOT filter: low-severity cliques are still real
+                // resource conflicts that must be resolved. Skipping them could
+                // prevent convergence or cause false-optimal returns for
+                // configurations where small overlaps matter for feasibility.
+                clique_candidates.sort_by(|a, b| b.0.cmp(&a.0));
+
+                // Per-iteration budget to prevent combinatorial blowup when many
+                // cliques are detected at once. Remaining cliques will be re-detected
+                // and processed in subsequent iterations (smart dedup via
+                // `added_resource_clique_rows` prevents double-adding).
+                const MAX_CLIQUES_PER_ITER: usize = 100;
+                let mut cliques_processed = 0usize;
+
+                for (_severity, members, _tau, _resource_a, _resource_b) in clique_candidates {
+                    if cliques_processed >= MAX_CLIQUES_PER_ITER {
                         found_resource_conflict = true;
-                        stats.n_conflict += 1;
+                        break;
+                    }
 
-                        for m in &members {
-                            if let Some(idxs) = touched_positions.get(&m.visit_id) {
-                                for &idx in idxs {
-                                    retain_touched[idx] = true;
-                                }
+                    let mut member_key: Vec<(VisitId, i32, i32)> = members
+                        .iter()
+                        .map(|m| {
+                            let (train_idx, visit_idx) = visits[m.visit_id];
+                            let next_incumbent =
+                                if visit_idx + 1 < problem.trains[train_idx].visits.len() {
+                                    let next_id: VisitId =
+                                        (usize::from(m.visit_id) + 1).into();
+                                    occupations[next_id].incumbent_time()
+                                } else {
+                                    i32::MAX
+                                };
+                            (m.visit_id, m.start, next_incumbent)
+                        })
+                        .collect();
+                    member_key.sort_unstable_by_key(|(v, t, _)| (v.0, *t));
+                    let row_key = ResourceCliqueRowKey {
+                        members: member_key,
+                    };
+                    if !added_resource_clique_rows.insert(row_key) {
+                        continue;
+                    }
+
+                    found_resource_conflict = true;
+                    stats.n_conflict += 1;
+
+                    for m in &members {
+                        if let Some(idxs) = touched_positions.get(&m.visit_id) {
+                            for &idx in idxs {
+                                retain_touched[idx] = true;
                             }
                         }
+                    }
 
-                        let refine_members: Vec<ActiveInterval> = members
-                            .iter()
-                            .copied()
-                            .filter(|m| touched_set.contains(&m.visit_id))
-                            .collect();
+                    // Fast-path for 2-member cliques (the common case in train
+                    // scheduling): emit a direct pairwise monotone clause
+                    // instead of Tseitin-encoded `active_i(tau)` aux vars + AMO.
+                    // Saves 6 Tseitin clauses + 2 aux vars per clique.
+                    if members.len() == 2 {
+                        let mi = members[0];
+                        let mj = members[1];
 
-                        // Monotone refinement, but only for intervals that were actually touched.
-                        // Each touched interval is moved just past its closest blocking end in this clique.
-                        for m in &refine_members {
-                            let Some(target_t) = members
-                                .iter()
-                                .filter(|other| {
-                                    other.visit_id != m.visit_id
-                                        && other.train_idx != m.train_idx
-                                        && other.end > m.start
-                                })
-                                .map(|other| other.end)
-                                .min()
-                            else {
-                                continue;
-                            };
-
-                            let (delay_after, is_new) =
-                                occupations[m.visit_id].time_point(&mut solver, target_t);
-                            if is_new {
-                                new_time_points.push((m.visit_id, delay_after, target_t));
+                        // Capture m_end literals BEFORE any timepoint creation.
+                        let m_end_lit_of = |visit_id: VisitId,
+                                            occs: &TiVec<VisitId, Occ<L>>|
+                         -> Bool<L> {
+                            let (train_idx, visit_idx) = visits[visit_id];
+                            if visit_idx + 1 < problem.trains[train_idx].visits.len() {
+                                let next_id: VisitId =
+                                    (usize::from(visit_id) + 1).into();
+                                occs[next_id].delays[occs[next_id].incumbent_idx].0
+                            } else {
+                                true.into()
                             }
-                            let _ = add_fixed_precedence_row(
+                        };
+
+                        let m_end_i = m_end_lit_of(mi.visit_id, &occupations);
+                        let m_end_j = m_end_lit_of(mj.visit_id, &occupations);
+
+                        let delay_i = get_delay_lit_at(
+                            &mut solver,
+                            problem,
+                            &visits,
+                            &mut occupations,
+                            &mut new_time_points,
+                            &mut fixed_prec_rows,
+                            settings.use_scl_fixed_precedence,
+                            mi.visit_id,
+                            mj.end,
+                        );
+                        let delay_j = get_delay_lit_at(
+                            &mut solver,
+                            problem,
+                            &visits,
+                            &mut occupations,
+                            &mut new_time_points,
+                            &mut fixed_prec_rows,
+                            settings.use_scl_fixed_precedence,
+                            mj.visit_id,
+                            mi.end,
+                        );
+
+                        solver.add_clause(vec![!m_end_i, !m_end_j, delay_i, delay_j]);
+                    } else {
+                        // Sequential AMO via Tseitin-encoded "active_i(tau)" aux vars.
+                        // Choose tau+1 = min(member.end) so the AMO forces at least
+                        // all but one member to start at or after this time. Uses
+                        // monotone delay literals capturing BOTH start and end.
+                        let tau_plus_1 = members.iter().map(|m| m.end).min().unwrap();
+
+                        let mut active_lits = Vec::with_capacity(members.len());
+                        for m in &members {
+                            let lit = build_active_lit(
                                 &mut solver,
                                 problem,
                                 &visits,
                                 &mut occupations,
                                 &mut new_time_points,
                                 &mut fixed_prec_rows,
-                                m.visit_id,
-                                delay_after,
-                                target_t,
+                                &mut active_lit_cache,
                                 settings.use_scl_fixed_precedence,
-                            );
-                        }
-
-                        let mut clique_lits = Vec::with_capacity(members.len());
-                        for m in &members {
-                            let lit = current_interval_choice_lit(
-                                &mut solver,
-                                &occupations,
-                                &mut current_choice_lits,
                                 m.visit_id,
+                                tau_plus_1,
                             );
-                            clique_lits.push(lit);
+                            active_lits.push(lit);
                         }
 
-                        add_hybrid_amo(&mut solver, &clique_lits);
-                        n_conflict_constraints += 1;
+                        add_hybrid_amo(&mut solver, &active_lits);
                     }
+                    n_conflict_constraints += 1;
+                    cliques_processed += 1;
                 }
 
                 let mut new_touched = Vec::new();
@@ -1182,13 +1282,7 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug + 'st
                         occupations[visit].cost.push(next_cost_var);
                         assert!(cost + 1 == occupations[visit].cost.len());
 
-                        objective_capacity = objective_capacity.saturating_add(1);
-                        binary_objective.ensure_capacity(
-                            &mut solver,
-                            &mut soft_constraints,
-                            objective_capacity,
-                        );
-                        binary_objective.add_term(&mut solver, next_cost_var, 1);
+                        soft_constraints.insert(!next_cost_var, (Soft::Primary, 1, 1));
                         // println!(
                         //     "Extending t{}v{} to cost {} {:?}",
                         //     train_idx, visit_idx, cost, next_cost_var
@@ -1214,26 +1308,17 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug + 'st
                     //     soft_constraints.insert(!cost_var, (Soft::Delay, weight, weight));
                     // }
 
-                    let mut emitted_terms = Vec::new();
+                    // Direct insertion in callback — no Vec buffering overhead.
+                    // Matches the ladder (non-SCL) pattern for lower allocation cost.
                     occupations[visit].cost_tree.add_cost(
                         &mut solver,
                         new_timepoint_var,
                         new_timepoint_cost,
-                        // var_name,
                         &mut |weight, cost_var| {
-                            emitted_terms.push((cost_var, weight));
+                            soft_constraints
+                                .insert(!cost_var, (Soft::Primary, weight, weight));
                         },
                     );
-
-                    for (cost_var, weight) in emitted_terms {
-                        objective_capacity = objective_capacity.saturating_add(weight);
-                        binary_objective.ensure_capacity(
-                            &mut solver,
-                            &mut soft_constraints,
-                            objective_capacity,
-                        );
-                        binary_objective.add_term(&mut solver, cost_var, weight);
-                    }
                 }
             }
 
@@ -1856,6 +1941,17 @@ impl<L: satcoder::Lit> Occ<L> {
         let var = solver.new_var();
         self.delays.insert(idx, (var, t));
 
+        // Keep `incumbent_idx` pointing to the same logical timepoint after
+        // insertion. If we inserted at or before the incumbent's array slot,
+        // the old incumbent shifted forward by one — compensate so callers
+        // reading `incumbent_time()` or `delays[incumbent_idx]` still see
+        // the same data they had before this call. Without this, an insertion
+        // before the incumbent leaves `delays[incumbent_idx]` pointing to the
+        // newly-inserted (wrong) timepoint, causing travel-time violations.
+        if idx <= self.incumbent_idx {
+            self.incumbent_idx += 1;
+        }
+
         if idx > 0 {
             solver.add_clause(vec![!var, self.delays[idx - 1].0]);
         }
@@ -1868,33 +1964,6 @@ impl<L: satcoder::Lit> Occ<L> {
     }
 }
 
-fn current_interval_choice_lit<L: satcoder::Lit>(
-    solver: &mut impl SatInstance<L>,
-    occupations: &TiVec<VisitId, Occ<L>>,
-    cache: &mut HashMap<(VisitId, i32, i32), Bool<L>>,
-    visit_id: VisitId,
-) -> Bool<L> {
-    let occ = &occupations[visit_id];
-    let idx = occ.incumbent_idx;
-    let start_t = occ.delays[idx].1;
-    let next_t = occ.delays[idx + 1].1;
-
-    if let Some(&lit) = cache.get(&(visit_id, start_t, next_t)) {
-        return lit;
-    }
-
-    let in_lit = occ.delays[idx].0;
-    let next_lit = occ.delays[idx + 1].0;
-    let chosen_lit = solver.new_var();
-
-    // chosen_lit <-> (in_lit && !next_lit)
-    solver.add_clause(vec![!chosen_lit, in_lit]);
-    solver.add_clause(vec![!chosen_lit, !next_lit]);
-    solver.add_clause(vec![chosen_lit, !in_lit, next_lit]);
-
-    cache.insert((visit_id, start_t, next_t), chosen_lit);
-    chosen_lit
-}
 
 fn add_sequential_amo<L: satcoder::Lit>(solver: &mut impl SatInstance<L>, lits: &[Bool<L>]) {
     match lits.len() {
@@ -1937,6 +2006,127 @@ fn add_hybrid_amo<L: satcoder::Lit>(solver: &mut impl SatInstance<L>, lits: &[Bo
     }
 }
 
+/// Monotone delay literal `visit_id.start ≥ t`.
+/// Returns `true.into()` if t ≤ earliest (always satisfied),
+/// `false.into()` if t ≥ infinity sentinel (never satisfied),
+/// otherwise creates the timepoint (if new) and returns its literal.
+fn get_delay_lit_at<L: satcoder::Lit>(
+    solver: &mut impl SatInstance<L>,
+    problem: &Problem,
+    visits: &TiVec<VisitId, (usize, usize)>,
+    occupations: &mut TiVec<VisitId, Occ<L>>,
+    new_time_points: &mut Vec<(VisitId, Bool<L>, i32)>,
+    fixed_prec_rows: &mut HashSet<(VisitId, i32)>,
+    use_scl_fixed_precedence: bool,
+    visit_id: VisitId,
+    t: i32,
+) -> Bool<L> {
+    let (earliest_t, last_t) = {
+        let occ = &occupations[visit_id];
+        (occ.delays[0].1, occ.delays[occ.delays.len() - 1].1)
+    };
+    if t <= earliest_t {
+        return true.into();
+    }
+    if t >= last_t {
+        return false.into();
+    }
+    let (lit, is_new) = occupations[visit_id].time_point(solver, t);
+    if is_new {
+        new_time_points.push((visit_id, lit, t));
+        let _ = add_fixed_precedence_row(
+            solver,
+            problem,
+            visits,
+            occupations,
+            new_time_points,
+            fixed_prec_rows,
+            visit_id,
+            lit,
+            t,
+            use_scl_fixed_precedence,
+        );
+    }
+    lit
+}
+
+/// Build a sound "active at tau" aux variable via Tseitin:
+///   active_i = (start_i ≤ tau) ∧ (end_i > tau)
+///           = !delay_i(tau+1) ∧ delay_next_i(tau+1)
+/// For the last visit of a train (no next visit), end_i = start_i + travel,
+/// so `end_i > tau` ⟺ `start_i ≥ tau - travel + 1`, encoded as `delay_i(tau+1-travel)`.
+///
+/// Cached per (visit_id, tau+1) to avoid duplicate aux vars.
+fn build_active_lit<L: satcoder::Lit>(
+    solver: &mut impl SatInstance<L>,
+    problem: &Problem,
+    visits: &TiVec<VisitId, (usize, usize)>,
+    occupations: &mut TiVec<VisitId, Occ<L>>,
+    new_time_points: &mut Vec<(VisitId, Bool<L>, i32)>,
+    fixed_prec_rows: &mut HashSet<(VisitId, i32)>,
+    active_cache: &mut HashMap<(VisitId, i32), Bool<L>>,
+    use_scl_fixed_precedence: bool,
+    visit_id: VisitId,
+    tau_plus_1: i32,
+) -> Bool<L> {
+    if let Some(&lit) = active_cache.get(&(visit_id, tau_plus_1)) {
+        return lit;
+    }
+
+    let (train_idx, visit_idx) = visits[visit_id];
+
+    let delay_start = get_delay_lit_at(
+        solver,
+        problem,
+        visits,
+        occupations,
+        new_time_points,
+        fixed_prec_rows,
+        use_scl_fixed_precedence,
+        visit_id,
+        tau_plus_1,
+    );
+
+    let delay_end = if visit_idx + 1 < problem.trains[train_idx].visits.len() {
+        let next_id: VisitId = (usize::from(visit_id) + 1).into();
+        get_delay_lit_at(
+            solver,
+            problem,
+            visits,
+            occupations,
+            new_time_points,
+            fixed_prec_rows,
+            use_scl_fixed_precedence,
+            next_id,
+            tau_plus_1,
+        )
+    } else {
+        let travel = problem.trains[train_idx].visits[visit_idx].travel_time;
+        get_delay_lit_at(
+            solver,
+            problem,
+            visits,
+            occupations,
+            new_time_points,
+            fixed_prec_rows,
+            use_scl_fixed_precedence,
+            visit_id,
+            tau_plus_1 - travel,
+        )
+    };
+
+    let active = solver.new_var();
+    // active → !delay_start
+    solver.add_clause(vec![!active, !delay_start]);
+    // active → delay_end
+    solver.add_clause(vec![!active, delay_end]);
+    // (!delay_start ∧ delay_end) → active
+    solver.add_clause(vec![active, delay_start, !delay_end]);
+
+    active_cache.insert((visit_id, tau_plus_1), active);
+    active
+}
+
 /// Add a fixed precedence row for one chosen time point and return the
 /// propagated successor time point for further queue-based propagation.
 fn add_fixed_precedence_row<L: satcoder::Lit>(
@@ -1971,8 +2161,29 @@ fn add_fixed_precedence_row<L: satcoder::Lit>(
 
     let (req_var, is_new) = occupations[next_visit].time_point(solver, req_t);
     if use_scl_fixed_precedence {
-        solver.add_clause(vec![!in_var, req_var]);
+        // Hybrid SCL (long-chain SCL variant): for short chains (≤ threshold)
+        // use the single Plain implication — monotonicity propagation handles
+        // it cheaply with no formula growth. For long chains (> threshold)
+        // expand into 3-literal chain clauses through the delay ladder so
+        // unit propagation reaches the far end in one shot rather than
+        // multi-hop through monotonicity.
+        const SCL_LONG_CHAIN_THRESHOLD: usize = 5;
+        let idx = occupations[next_visit]
+            .delays
+            .partition_point(|(_, t0)| *t0 < req_t);
+        if idx > SCL_LONG_CHAIN_THRESHOLD {
+            for i in 0..idx {
+                let lit_i = occupations[next_visit].delays[i].0;
+                let lit_next = occupations[next_visit].delays[i + 1].0;
+                solver.add_clause(vec![!in_var, !lit_i, lit_next]);
+            }
+        } else {
+            solver.add_clause(vec![!in_var, req_var]);
+        }
     } else {
+        // Plain encoding: a single 2-literal implication. Relies on the
+        // monotonicity chain among delay literals (already established in
+        // `Occ::time_point`) for correct forward propagation.
         solver.add_clause(vec![!in_var, req_var]);
     }
     if is_new {

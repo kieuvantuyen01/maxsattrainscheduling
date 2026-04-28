@@ -1,0 +1,2013 @@
+[
+  {
+    "avg_tracks": 20.931034088134766,
+    "conflicting_visit_pairs": 5915,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 0,
+    "name": "origA1",
+    "solves": [
+      {
+        "added_conflict_pairs": 10,
+        "algorithm_time": 0.024844085,
+        "cost": 5526,
+        "delay_cost_type": "Continuous",
+        "iteration": 5,
+        "lb": 5526,
+        "refinements": 4,
+        "resource_constraints": 10,
+        "sol_time": 59.596238,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.022718435,
+        "status": "ok",
+        "total_time": 0.047561685,
+        "travel_constraints": 1214,
+        "ub": 5526
+      }
+    ],
+    "trains": 29
+  },
+  {
+    "avg_tracks": 19.0,
+    "conflicting_visit_pairs": 3735,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 1,
+    "name": "origA2",
+    "solves": [
+      {
+        "added_conflict_pairs": 16,
+        "algorithm_time": 0.013758582000000002,
+        "cost": 5804,
+        "delay_cost_type": "Continuous",
+        "iteration": 4,
+        "lb": 5804,
+        "refinements": 3,
+        "resource_constraints": 16,
+        "sol_time": 58.898981000000006,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.011735875,
+        "status": "ok",
+        "total_time": 0.025493867,
+        "travel_constraints": 950,
+        "ub": 5804
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 22.375,
+    "conflicting_visit_pairs": 2061,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 2,
+    "name": "origA3",
+    "solves": [
+      {
+        "added_conflict_pairs": 9,
+        "algorithm_time": 0.010121224000000002,
+        "cost": 1329,
+        "delay_cost_type": "Continuous",
+        "iteration": 4,
+        "lb": 1329,
+        "refinements": 3,
+        "resource_constraints": 9,
+        "sol_time": 17.204237,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.00697271,
+        "status": "ok",
+        "total_time": 0.01709319,
+        "travel_constraints": 716,
+        "ub": 1329
+      }
+    ],
+    "trains": 16
+  },
+  {
+    "avg_tracks": 19.214284896850586,
+    "conflicting_visit_pairs": 1175,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 3,
+    "name": "origA4",
+    "solves": [
+      {
+        "added_conflict_pairs": 6,
+        "algorithm_time": 0.004865023,
+        "cost": 2706,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 2706,
+        "refinements": 1,
+        "resource_constraints": 6,
+        "sol_time": 12.620258,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.002536181,
+        "status": "ok",
+        "total_time": 0.007400568,
+        "travel_constraints": 538,
+        "ub": 2706
+      }
+    ],
+    "trains": 14
+  },
+  {
+    "avg_tracks": 19.25,
+    "conflicting_visit_pairs": 876,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 4,
+    "name": "origA5",
+    "solves": [
+      {
+        "added_conflict_pairs": 5,
+        "algorithm_time": 0.006612150999999999,
+        "cost": 2634,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 2634,
+        "refinements": 1,
+        "resource_constraints": 5,
+        "sol_time": 11.350387,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.004555585,
+        "status": "ok",
+        "total_time": 0.011166031,
+        "travel_constraints": 462,
+        "ub": 2634
+      }
+    ],
+    "trains": 12
+  },
+  {
+    "avg_tracks": 18.625,
+    "conflicting_visit_pairs": 307,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 5,
+    "name": "origA6",
+    "solves": [
+      {
+        "added_conflict_pairs": 5,
+        "algorithm_time": 0.004823649,
+        "cost": 2043,
+        "delay_cost_type": "Continuous",
+        "iteration": 3,
+        "lb": 2043,
+        "refinements": 2,
+        "resource_constraints": 5,
+        "sol_time": 14.208525,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.005050178,
+        "status": "ok",
+        "total_time": 0.009872992,
+        "travel_constraints": 298,
+        "ub": 2043
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 12.625,
+    "conflicting_visit_pairs": 126,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 6,
+    "name": "origA7",
+    "solves": [
+      {
+        "added_conflict_pairs": 5,
+        "algorithm_time": 0.0022852230000000003,
+        "cost": 1918,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 1918,
+        "refinements": 1,
+        "resource_constraints": 5,
+        "sol_time": 4.654995,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.002230739,
+        "status": "ok",
+        "total_time": 0.004515292,
+        "travel_constraints": 202,
+        "ub": 1918
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 19.214284896850586,
+    "conflicting_visit_pairs": 4877,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 7,
+    "name": "origA8",
+    "solves": [
+      {
+        "added_conflict_pairs": 59,
+        "algorithm_time": 0.022213399999999994,
+        "cost": 23143,
+        "delay_cost_type": "Continuous",
+        "iteration": 8,
+        "lb": 23143,
+        "refinements": 7,
+        "resource_constraints": 59,
+        "sol_time": 403.678027,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.38121849,
+        "status": "ok",
+        "total_time": 0.40343072,
+        "travel_constraints": 1076,
+        "ub": 23143
+      }
+    ],
+    "trains": 28
+  },
+  {
+    "avg_tracks": 20.049999237060547,
+    "conflicting_visit_pairs": 2616,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 8,
+    "name": "origA9",
+    "solves": [
+      {
+        "added_conflict_pairs": 18,
+        "algorithm_time": 0.01246212,
+        "cost": 6178,
+        "delay_cost_type": "Continuous",
+        "iteration": 5,
+        "lb": 6178,
+        "refinements": 4,
+        "resource_constraints": 18,
+        "sol_time": 33.480748999999996,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.014309584,
+        "status": "ok",
+        "total_time": 0.026770766,
+        "travel_constraints": 802,
+        "ub": 6178
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 18.176469802856445,
+    "conflicting_visit_pairs": 1632,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 9,
+    "name": "origA10",
+    "solves": [
+      {
+        "added_conflict_pairs": 17,
+        "algorithm_time": 0.008133930000000001,
+        "cost": 4746,
+        "delay_cost_type": "Continuous",
+        "iteration": 5,
+        "lb": 4746,
+        "refinements": 4,
+        "resource_constraints": 17,
+        "sol_time": 19.897387,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.011570424,
+        "status": "ok",
+        "total_time": 0.019703545,
+        "travel_constraints": 618,
+        "ub": 4746
+      }
+    ],
+    "trains": 17
+  },
+  {
+    "avg_tracks": 19.83333396911621,
+    "conflicting_visit_pairs": 6162,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 10,
+    "name": "origA11",
+    "solves": [
+      {
+        "added_conflict_pairs": 34,
+        "algorithm_time": 0.02100423,
+        "cost": 3331,
+        "delay_cost_type": "Continuous",
+        "iteration": 5,
+        "lb": 3331,
+        "refinements": 4,
+        "resource_constraints": 34,
+        "sol_time": 67.775872,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.040015705,
+        "status": "ok",
+        "total_time": 0.061019477,
+        "travel_constraints": 1190,
+        "ub": 3331
+      }
+    ],
+    "trains": 30
+  },
+  {
+    "avg_tracks": 21.714284896850586,
+    "conflicting_visit_pairs": 6393,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 11,
+    "name": "origA12",
+    "solves": [
+      {
+        "added_conflict_pairs": 37,
+        "algorithm_time": 0.024331570999999996,
+        "cost": 4247,
+        "delay_cost_type": "Continuous",
+        "iteration": 6,
+        "lb": 4247,
+        "refinements": 5,
+        "resource_constraints": 37,
+        "sol_time": 160.445988,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.12637104,
+        "status": "ok",
+        "total_time": 0.150701659,
+        "travel_constraints": 1216,
+        "ub": 4247
+      }
+    ],
+    "trains": 28
+  },
+  {
+    "avg_tracks": 17.33333396911621,
+    "conflicting_visit_pairs": 2022,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 12,
+    "name": "origB1",
+    "solves": [
+      {
+        "added_conflict_pairs": 4,
+        "algorithm_time": 0.008814193000000001,
+        "cost": 969,
+        "delay_cost_type": "Continuous",
+        "iteration": 4,
+        "lb": 969,
+        "refinements": 3,
+        "resource_constraints": 4,
+        "sol_time": 13.849234000000001,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.00488383,
+        "status": "ok",
+        "total_time": 0.013697141,
+        "travel_constraints": 624,
+        "ub": 969
+      }
+    ],
+    "trains": 18
+  },
+  {
+    "avg_tracks": 14.800000190734863,
+    "conflicting_visit_pairs": 87,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 13,
+    "name": "origB2",
+    "solves": [
+      {
+        "added_conflict_pairs": 1,
+        "algorithm_time": 0.001806763,
+        "cost": 347,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 347,
+        "refinements": 1,
+        "resource_constraints": 1,
+        "sol_time": 3.407009,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.00145931,
+        "status": "ok",
+        "total_time": 0.00326559,
+        "travel_constraints": 148,
+        "ub": 347
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 16.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 20,
+    "delay_cost_type": "Continuous",
+    "index": 14,
+    "name": "origB3",
+    "solves": [
+      {
+        "added_conflict_pairs": 4,
+        "algorithm_time": 0.0026663950000000002,
+        "cost": 629,
+        "delay_cost_type": "Continuous",
+        "iteration": 3,
+        "lb": 629,
+        "refinements": 2,
+        "resource_constraints": 4,
+        "sol_time": 5.824066999999999,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.003028309,
+        "status": "ok",
+        "total_time": 0.005693827,
+        "travel_constraints": 168,
+        "ub": 629
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.949999809265137,
+    "conflicting_visit_pairs": 2246,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 15,
+    "name": "origB4",
+    "solves": [
+      {
+        "added_conflict_pairs": 10,
+        "algorithm_time": 0.010393376000000001,
+        "cost": 53607,
+        "delay_cost_type": "Continuous",
+        "iteration": 6,
+        "lb": 53607,
+        "refinements": 5,
+        "resource_constraints": 10,
+        "sol_time": 27.342046,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.011003073,
+        "status": "ok",
+        "total_time": 0.021395547,
+        "travel_constraints": 638,
+        "ub": 53607
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 17.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 16,
+    "name": "origB5",
+    "solves": [
+      {
+        "added_conflict_pairs": 3,
+        "algorithm_time": 0.0036623550000000004,
+        "cost": 288,
+        "delay_cost_type": "Continuous",
+        "iteration": 4,
+        "lb": 288,
+        "refinements": 3,
+        "resource_constraints": 3,
+        "sol_time": 6.879647,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.003094783,
+        "status": "ok",
+        "total_time": 0.00675633,
+        "travel_constraints": 178,
+        "ub": 288
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.199999809265137,
+    "conflicting_visit_pairs": 93,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 17,
+    "name": "origB6",
+    "solves": [
+      {
+        "added_conflict_pairs": 1,
+        "algorithm_time": 0.003242817,
+        "cost": 176,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 176,
+        "refinements": 1,
+        "resource_constraints": 1,
+        "sol_time": 5.921031999999999,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.002551428,
+        "status": "ok",
+        "total_time": 0.005793507,
+        "travel_constraints": 152,
+        "ub": 176
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.25,
+    "conflicting_visit_pairs": 2865,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 18,
+    "name": "origB7",
+    "solves": [
+      {
+        "added_conflict_pairs": 26,
+        "algorithm_time": 0.014075737000000005,
+        "cost": 65828,
+        "delay_cost_type": "Continuous",
+        "iteration": 7,
+        "lb": 65828,
+        "refinements": 6,
+        "resource_constraints": 26,
+        "sol_time": 46.5345,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.032242611,
+        "status": "ok",
+        "total_time": 0.04631684,
+        "travel_constraints": 732,
+        "ub": 65828
+      }
+    ],
+    "trains": 24
+  },
+  {
+    "avg_tracks": 13.399999618530273,
+    "conflicting_visit_pairs": 72,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 19,
+    "name": "origB8",
+    "solves": [
+      {
+        "added_conflict_pairs": 1,
+        "algorithm_time": 0.001974585,
+        "cost": 676,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 676,
+        "refinements": 1,
+        "resource_constraints": 1,
+        "sol_time": 3.598306,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.001491187,
+        "status": "ok",
+        "total_time": 0.003465018,
+        "travel_constraints": 134,
+        "ub": 676
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 13.571428298950195,
+    "conflicting_visit_pairs": 150,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 20,
+    "name": "origB9",
+    "solves": [
+      {
+        "added_conflict_pairs": 9,
+        "algorithm_time": 0.005125563,
+        "cost": 5967,
+        "delay_cost_type": "Continuous",
+        "iteration": 5,
+        "lb": 5967,
+        "refinements": 4,
+        "resource_constraints": 9,
+        "sol_time": 13.695696,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.008417536,
+        "status": "ok",
+        "total_time": 0.013542406,
+        "travel_constraints": 190,
+        "ub": 5967
+      }
+    ],
+    "trains": 7
+  },
+  {
+    "avg_tracks": 11.375,
+    "conflicting_visit_pairs": 130,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 21,
+    "name": "origB10",
+    "solves": [
+      {
+        "added_conflict_pairs": 8,
+        "algorithm_time": 0.0029470269999999996,
+        "cost": 5747,
+        "delay_cost_type": "Continuous",
+        "iteration": 3,
+        "lb": 5747,
+        "refinements": 2,
+        "resource_constraints": 8,
+        "sol_time": 8.090137,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.004861469,
+        "status": "ok",
+        "total_time": 0.007806846,
+        "travel_constraints": 182,
+        "ub": 5747
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 15.399999618530273,
+    "conflicting_visit_pairs": 3202,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 22,
+    "name": "origB11",
+    "solves": [
+      {
+        "added_conflict_pairs": 61,
+        "algorithm_time": 0.035187405000000005,
+        "cost": 75494,
+        "delay_cost_type": "Continuous",
+        "iteration": 23,
+        "lb": 75494,
+        "refinements": 22,
+        "resource_constraints": 61,
+        "sol_time": 255.07768800000002,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.219568967,
+        "status": "ok",
+        "total_time": 0.254755218,
+        "travel_constraints": 770,
+        "ub": 75494
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 16.214284896850586,
+    "conflicting_visit_pairs": 970,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 23,
+    "name": "origB12",
+    "solves": [
+      {
+        "added_conflict_pairs": 3,
+        "algorithm_time": 0.003864495,
+        "cost": 918,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 918,
+        "refinements": 1,
+        "resource_constraints": 3,
+        "sol_time": 9.931472,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.001728467,
+        "status": "ok",
+        "total_time": 0.005592381,
+        "travel_constraints": 454,
+        "ub": 918
+      }
+    ],
+    "trains": 14
+  },
+  {
+    "avg_tracks": 20.931034088134766,
+    "conflicting_visit_pairs": 5915,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 24,
+    "name": "trackA1",
+    "solves": [
+      {
+        "added_conflict_pairs": 63,
+        "algorithm_time": 0.023672214999999996,
+        "cost": 9621,
+        "delay_cost_type": "Continuous",
+        "iteration": 5,
+        "lb": 9621,
+        "refinements": 4,
+        "resource_constraints": 63,
+        "sol_time": 113.79661100000001,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.081633421,
+        "status": "ok",
+        "total_time": 0.105304517,
+        "travel_constraints": 1214,
+        "ub": 9621
+      }
+    ],
+    "trains": 29
+  },
+  {
+    "avg_tracks": 19.0,
+    "conflicting_visit_pairs": 3735,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 25,
+    "name": "trackA2",
+    "solves": [
+      {
+        "added_conflict_pairs": 52,
+        "algorithm_time": 0.014018691,
+        "cost": 6859,
+        "delay_cost_type": "Continuous",
+        "iteration": 4,
+        "lb": 6859,
+        "refinements": 3,
+        "resource_constraints": 52,
+        "sol_time": 68.164483,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.046695633,
+        "status": "ok",
+        "total_time": 0.060713641,
+        "travel_constraints": 950,
+        "ub": 6859
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 22.375,
+    "conflicting_visit_pairs": 2061,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 26,
+    "name": "trackA3",
+    "solves": [
+      {
+        "added_conflict_pairs": 32,
+        "algorithm_time": 0.012437472999999998,
+        "cost": 2077,
+        "delay_cost_type": "Continuous",
+        "iteration": 5,
+        "lb": 2077,
+        "refinements": 4,
+        "resource_constraints": 32,
+        "sol_time": 46.926949,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.028756493,
+        "status": "ok",
+        "total_time": 0.041193202,
+        "travel_constraints": 716,
+        "ub": 2077
+      }
+    ],
+    "trains": 16
+  },
+  {
+    "avg_tracks": 19.214284896850586,
+    "conflicting_visit_pairs": 1175,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 27,
+    "name": "trackA4",
+    "solves": [
+      {
+        "added_conflict_pairs": 16,
+        "algorithm_time": 0.006383923999999999,
+        "cost": 2069,
+        "delay_cost_type": "Continuous",
+        "iteration": 3,
+        "lb": 2069,
+        "refinements": 2,
+        "resource_constraints": 16,
+        "sol_time": 18.293897,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.007037161,
+        "status": "ok",
+        "total_time": 0.013420199,
+        "travel_constraints": 538,
+        "ub": 2069
+      }
+    ],
+    "trains": 14
+  },
+  {
+    "avg_tracks": 19.25,
+    "conflicting_visit_pairs": 876,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 28,
+    "name": "trackA5",
+    "solves": [
+      {
+        "added_conflict_pairs": 15,
+        "algorithm_time": 0.005064197,
+        "cost": 2773,
+        "delay_cost_type": "Continuous",
+        "iteration": 3,
+        "lb": 2773,
+        "refinements": 2,
+        "resource_constraints": 15,
+        "sol_time": 12.187515,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.006972725,
+        "status": "ok",
+        "total_time": 0.01203617,
+        "travel_constraints": 462,
+        "ub": 2773
+      }
+    ],
+    "trains": 12
+  },
+  {
+    "avg_tracks": 18.625,
+    "conflicting_visit_pairs": 307,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 29,
+    "name": "trackA6",
+    "solves": [
+      {
+        "added_conflict_pairs": 6,
+        "algorithm_time": 0.003674758,
+        "cost": 1679,
+        "delay_cost_type": "Continuous",
+        "iteration": 3,
+        "lb": 1679,
+        "refinements": 2,
+        "resource_constraints": 6,
+        "sol_time": 7.627905,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.003820769,
+        "status": "ok",
+        "total_time": 0.007494802,
+        "travel_constraints": 298,
+        "ub": 1679
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 12.625,
+    "conflicting_visit_pairs": 126,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 30,
+    "name": "trackA7",
+    "solves": [
+      {
+        "added_conflict_pairs": 6,
+        "algorithm_time": 0.0022946039999999996,
+        "cost": 1393,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 1393,
+        "refinements": 1,
+        "resource_constraints": 6,
+        "sol_time": 4.24361,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.001821431,
+        "status": "ok",
+        "total_time": 0.004115413,
+        "travel_constraints": 202,
+        "ub": 1393
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 19.88888931274414,
+    "conflicting_visit_pairs": 4862,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 31,
+    "name": "trackA8",
+    "solves": [
+      {
+        "added_conflict_pairs": 158,
+        "algorithm_time": 0.027741497999997478,
+        "cost": 24441,
+        "delay_cost_type": "Continuous",
+        "iteration": 10,
+        "lb": 24441,
+        "refinements": 9,
+        "resource_constraints": 158,
+        "sol_time": 44110.530987,
+        "solver_name": "BigMLazy",
+        "solver_time": 44.082385265,
+        "status": "ok",
+        "total_time": 44.110126294,
+        "travel_constraints": 1074,
+        "ub": 24441
+      }
+    ],
+    "trains": 27
+  },
+  {
+    "avg_tracks": 20.049999237060547,
+    "conflicting_visit_pairs": 2616,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 32,
+    "name": "trackA9",
+    "solves": [
+      {
+        "added_conflict_pairs": 39,
+        "algorithm_time": 0.012900080000000001,
+        "cost": 6305,
+        "delay_cost_type": "Continuous",
+        "iteration": 4,
+        "lb": 6305,
+        "refinements": 3,
+        "resource_constraints": 39,
+        "sol_time": 52.394938,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.029467043,
+        "status": "ok",
+        "total_time": 0.042366267,
+        "travel_constraints": 802,
+        "ub": 6305
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 18.176469802856445,
+    "conflicting_visit_pairs": 1632,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 33,
+    "name": "trackA10",
+    "solves": [
+      {
+        "added_conflict_pairs": 17,
+        "algorithm_time": 0.0071925420000000006,
+        "cost": 4812,
+        "delay_cost_type": "Continuous",
+        "iteration": 3,
+        "lb": 4812,
+        "refinements": 2,
+        "resource_constraints": 17,
+        "sol_time": 14.78721,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.007436921,
+        "status": "ok",
+        "total_time": 0.014628456,
+        "travel_constraints": 618,
+        "ub": 4812
+      }
+    ],
+    "trains": 17
+  },
+  {
+    "avg_tracks": 20.482759475708008,
+    "conflicting_visit_pairs": 6144,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 34,
+    "name": "trackA11",
+    "solves": [
+      {
+        "added_conflict_pairs": 244,
+        "algorithm_time": 0.031584865999988665,
+        "delay_cost_type": "Continuous",
+        "iteration": 10,
+        "lb": 15680,
+        "refinements": 9,
+        "resource_constraints": 244,
+        "sol_time": 120045.88904499999,
+        "solver_name": "BigMLazy",
+        "solver_time": 119.970796598,
+        "status": "timeout",
+        "total_time": 120.00238003,
+        "travel_constraints": 1188,
+        "ub": 21976
+      }
+    ],
+    "trains": 29
+  },
+  {
+    "avg_tracks": 21.714284896850586,
+    "conflicting_visit_pairs": 6393,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 35,
+    "name": "trackA12",
+    "solves": [
+      {
+        "added_conflict_pairs": 226,
+        "algorithm_time": 0.029048725999999192,
+        "delay_cost_type": "Continuous",
+        "iteration": 8,
+        "lb": 17017,
+        "refinements": 7,
+        "resource_constraints": 226,
+        "sol_time": 120129.475498,
+        "solver_name": "BigMLazy",
+        "solver_time": 119.974549909,
+        "status": "timeout",
+        "total_time": 120.003596458,
+        "travel_constraints": 1216,
+        "ub": 26121
+      }
+    ],
+    "trains": 28
+  },
+  {
+    "avg_tracks": 17.33333396911621,
+    "conflicting_visit_pairs": 2022,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 36,
+    "name": "trackB1",
+    "solves": [
+      {
+        "added_conflict_pairs": 21,
+        "algorithm_time": 0.007805559999999998,
+        "cost": 1507,
+        "delay_cost_type": "Continuous",
+        "iteration": 3,
+        "lb": 1507,
+        "refinements": 2,
+        "resource_constraints": 21,
+        "sol_time": 18.460496,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.010501074,
+        "status": "ok",
+        "total_time": 0.018305891,
+        "travel_constraints": 624,
+        "ub": 1507
+      }
+    ],
+    "trains": 18
+  },
+  {
+    "avg_tracks": 14.800000190734863,
+    "conflicting_visit_pairs": 87,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 37,
+    "name": "trackB2",
+    "solves": [
+      {
+        "added_conflict_pairs": 5,
+        "algorithm_time": 0.002056138,
+        "cost": 4404,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 4404,
+        "refinements": 1,
+        "resource_constraints": 5,
+        "sol_time": 4.0133790000000005,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.001781387,
+        "status": "ok",
+        "total_time": 0.003836765,
+        "travel_constraints": 148,
+        "ub": 4404
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 16.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 20,
+    "delay_cost_type": "Continuous",
+    "index": 38,
+    "name": "trackB3",
+    "solves": [
+      {
+        "added_conflict_pairs": 7,
+        "algorithm_time": 0.002151885,
+        "cost": 596,
+        "delay_cost_type": "Continuous",
+        "iteration": 3,
+        "lb": 596,
+        "refinements": 2,
+        "resource_constraints": 7,
+        "sol_time": 6.6153189999999995,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.004282284,
+        "status": "ok",
+        "total_time": 0.006433335,
+        "travel_constraints": 168,
+        "ub": 596
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.949999809265137,
+    "conflicting_visit_pairs": 2246,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 39,
+    "name": "trackB4",
+    "solves": [
+      {
+        "added_conflict_pairs": 36,
+        "algorithm_time": 0.010777260000000004,
+        "cost": 60558,
+        "delay_cost_type": "Continuous",
+        "iteration": 6,
+        "lb": 60558,
+        "refinements": 5,
+        "resource_constraints": 36,
+        "sol_time": 45.767188,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.032982199,
+        "status": "ok",
+        "total_time": 0.043758398,
+        "travel_constraints": 638,
+        "ub": 60558
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 17.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 40,
+    "name": "trackB5",
+    "solves": [
+      {
+        "added_conflict_pairs": 10,
+        "algorithm_time": 0.0034671649999999995,
+        "cost": 1662,
+        "delay_cost_type": "Continuous",
+        "iteration": 4,
+        "lb": 1662,
+        "refinements": 3,
+        "resource_constraints": 10,
+        "sol_time": 13.727155,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.00657486,
+        "status": "ok",
+        "total_time": 0.010041166,
+        "travel_constraints": 178,
+        "ub": 1662
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.199999809265137,
+    "conflicting_visit_pairs": 93,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 41,
+    "name": "trackB6",
+    "solves": [
+      {
+        "added_conflict_pairs": 3,
+        "algorithm_time": 0.0017870679999999997,
+        "cost": 209,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 209,
+        "refinements": 1,
+        "resource_constraints": 3,
+        "sol_time": 3.4997190000000002,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.001589735,
+        "status": "ok",
+        "total_time": 0.003376005,
+        "travel_constraints": 152,
+        "ub": 209
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.25,
+    "conflicting_visit_pairs": 2865,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 42,
+    "name": "trackB7",
+    "solves": [
+      {
+        "added_conflict_pairs": 39,
+        "algorithm_time": 0.01938967300000001,
+        "cost": 56119,
+        "delay_cost_type": "Continuous",
+        "iteration": 7,
+        "lb": 56119,
+        "refinements": 6,
+        "resource_constraints": 39,
+        "sol_time": 83.080699,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.063441931,
+        "status": "ok",
+        "total_time": 0.082830111,
+        "travel_constraints": 732,
+        "ub": 56119
+      }
+    ],
+    "trains": 24
+  },
+  {
+    "avg_tracks": 13.399999618530273,
+    "conflicting_visit_pairs": 72,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 43,
+    "name": "trackB8",
+    "solves": [
+      {
+        "added_conflict_pairs": 6,
+        "algorithm_time": 0.0029146530000000006,
+        "cost": 1906,
+        "delay_cost_type": "Continuous",
+        "iteration": 4,
+        "lb": 1906,
+        "refinements": 3,
+        "resource_constraints": 6,
+        "sol_time": 9.092329,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.006011511,
+        "status": "ok",
+        "total_time": 0.008925181,
+        "travel_constraints": 134,
+        "ub": 1906
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 13.571428298950195,
+    "conflicting_visit_pairs": 150,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 44,
+    "name": "trackB9",
+    "solves": [
+      {
+        "added_conflict_pairs": 9,
+        "algorithm_time": 0.003081821,
+        "cost": 8593,
+        "delay_cost_type": "Continuous",
+        "iteration": 4,
+        "lb": 8593,
+        "refinements": 3,
+        "resource_constraints": 9,
+        "sol_time": 9.756131,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.006501676,
+        "status": "ok",
+        "total_time": 0.009582639,
+        "travel_constraints": 190,
+        "ub": 8593
+      }
+    ],
+    "trains": 7
+  },
+  {
+    "avg_tracks": 12.857142448425293,
+    "conflicting_visit_pairs": 126,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 45,
+    "name": "trackB10",
+    "solves": [
+      {
+        "added_conflict_pairs": 3,
+        "algorithm_time": 0.0022916569999999995,
+        "cost": 6912,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 6912,
+        "refinements": 1,
+        "resource_constraints": 3,
+        "sol_time": 4.529015,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.002106777,
+        "status": "ok",
+        "total_time": 0.004397785,
+        "travel_constraints": 180,
+        "ub": 6912
+      }
+    ],
+    "trains": 7
+  },
+  {
+    "avg_tracks": 15.399999618530273,
+    "conflicting_visit_pairs": 3202,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 46,
+    "name": "trackB11",
+    "solves": [
+      {
+        "added_conflict_pairs": 42,
+        "algorithm_time": 0.011775642999999999,
+        "cost": 68844,
+        "delay_cost_type": "Continuous",
+        "iteration": 4,
+        "lb": 68844,
+        "refinements": 3,
+        "resource_constraints": 42,
+        "sol_time": 39.057029,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.02710242,
+        "status": "ok",
+        "total_time": 0.03887763,
+        "travel_constraints": 770,
+        "ub": 68844
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 16.214284896850586,
+    "conflicting_visit_pairs": 970,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 47,
+    "name": "trackB12",
+    "solves": [
+      {
+        "added_conflict_pairs": 35,
+        "algorithm_time": 0.008991828,
+        "cost": 15182,
+        "delay_cost_type": "Continuous",
+        "iteration": 7,
+        "lb": 15182,
+        "refinements": 6,
+        "resource_constraints": 35,
+        "sol_time": 49.141194999999996,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.035213628,
+        "status": "ok",
+        "total_time": 0.044204828,
+        "travel_constraints": 454,
+        "ub": 15182
+      }
+    ],
+    "trains": 14
+  },
+  {
+    "avg_tracks": 20.931034088134766,
+    "conflicting_visit_pairs": 5915,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 48,
+    "name": "stationA1",
+    "solves": [
+      {
+        "added_conflict_pairs": 68,
+        "algorithm_time": 0.02397345700000031,
+        "cost": 12884,
+        "delay_cost_type": "Continuous",
+        "iteration": 6,
+        "lb": 12884,
+        "refinements": 5,
+        "resource_constraints": 68,
+        "sol_time": 2654.4553410000003,
+        "solver_name": "BigMLazy",
+        "solver_time": 2.622134762,
+        "status": "ok",
+        "total_time": 2.646106804,
+        "travel_constraints": 1214,
+        "ub": 12884
+      }
+    ],
+    "trains": 29
+  },
+  {
+    "avg_tracks": 19.0,
+    "conflicting_visit_pairs": 3735,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 49,
+    "name": "stationA2",
+    "solves": [
+      {
+        "added_conflict_pairs": 64,
+        "algorithm_time": 0.019228586000000103,
+        "cost": 9193,
+        "delay_cost_type": "Continuous",
+        "iteration": 7,
+        "lb": 9193,
+        "refinements": 6,
+        "resource_constraints": 64,
+        "sol_time": 1447.7735659999998,
+        "solver_name": "BigMLazy",
+        "solver_time": 1.41291412,
+        "status": "ok",
+        "total_time": 1.432141768,
+        "travel_constraints": 950,
+        "ub": 9193
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 22.375,
+    "conflicting_visit_pairs": 2061,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 50,
+    "name": "stationA3",
+    "solves": [
+      {
+        "added_conflict_pairs": 31,
+        "algorithm_time": 0.012398044,
+        "cost": 3681,
+        "delay_cost_type": "Continuous",
+        "iteration": 4,
+        "lb": 3681,
+        "refinements": 3,
+        "resource_constraints": 31,
+        "sol_time": 50.277532,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.031056782,
+        "status": "ok",
+        "total_time": 0.043453888,
+        "travel_constraints": 716,
+        "ub": 3681
+      }
+    ],
+    "trains": 16
+  },
+  {
+    "avg_tracks": 19.214284896850586,
+    "conflicting_visit_pairs": 1175,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 51,
+    "name": "stationA4",
+    "solves": [
+      {
+        "added_conflict_pairs": 20,
+        "algorithm_time": 0.0071482460000000005,
+        "cost": 3122,
+        "delay_cost_type": "Continuous",
+        "iteration": 4,
+        "lb": 3122,
+        "refinements": 3,
+        "resource_constraints": 20,
+        "sol_time": 21.576687,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.014277411,
+        "status": "ok",
+        "total_time": 0.021424811,
+        "travel_constraints": 538,
+        "ub": 3122
+      }
+    ],
+    "trains": 14
+  },
+  {
+    "avg_tracks": 19.25,
+    "conflicting_visit_pairs": 876,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 52,
+    "name": "stationA5",
+    "solves": [
+      {
+        "added_conflict_pairs": 19,
+        "algorithm_time": 0.005429035999999998,
+        "cost": 3306,
+        "delay_cost_type": "Continuous",
+        "iteration": 4,
+        "lb": 3306,
+        "refinements": 3,
+        "resource_constraints": 19,
+        "sol_time": 16.326197,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.010717179,
+        "status": "ok",
+        "total_time": 0.016145318,
+        "travel_constraints": 462,
+        "ub": 3306
+      }
+    ],
+    "trains": 12
+  },
+  {
+    "avg_tracks": 18.625,
+    "conflicting_visit_pairs": 307,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 53,
+    "name": "stationA6",
+    "solves": [
+      {
+        "added_conflict_pairs": 4,
+        "algorithm_time": 0.0025651199999999997,
+        "cost": 2149,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 2149,
+        "refinements": 1,
+        "resource_constraints": 4,
+        "sol_time": 7.438814,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.001630546,
+        "status": "ok",
+        "total_time": 0.004194764,
+        "travel_constraints": 298,
+        "ub": 2149
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 12.625,
+    "conflicting_visit_pairs": 126,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 54,
+    "name": "stationA7",
+    "solves": [
+      {
+        "added_conflict_pairs": 8,
+        "algorithm_time": 0.002125458,
+        "cost": 1762,
+        "delay_cost_type": "Continuous",
+        "iteration": 3,
+        "lb": 1762,
+        "refinements": 2,
+        "resource_constraints": 8,
+        "sol_time": 6.426119,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.004169849,
+        "status": "ok",
+        "total_time": 0.006294331,
+        "travel_constraints": 202,
+        "ub": 1762
+      }
+    ],
+    "trains": 8
+  },
+  {
+    "avg_tracks": 19.88888931274414,
+    "conflicting_visit_pairs": 4862,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 55,
+    "name": "stationA8",
+    "solves": [
+      {
+        "added_conflict_pairs": 172,
+        "algorithm_time": 0.029907741000002375,
+        "delay_cost_type": "Continuous",
+        "iteration": 12,
+        "lb": 26683,
+        "refinements": 11,
+        "resource_constraints": 172,
+        "sol_time": 120061.357856,
+        "solver_name": "BigMLazy",
+        "solver_time": 119.971553374,
+        "status": "timeout",
+        "total_time": 120.001459057,
+        "travel_constraints": 1074,
+        "ub": 28164
+      }
+    ],
+    "trains": 27
+  },
+  {
+    "avg_tracks": 20.049999237060547,
+    "conflicting_visit_pairs": 2616,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 56,
+    "name": "stationA9",
+    "solves": [
+      {
+        "added_conflict_pairs": 40,
+        "algorithm_time": 0.011580871999999999,
+        "cost": 7655,
+        "delay_cost_type": "Continuous",
+        "iteration": 4,
+        "lb": 7655,
+        "refinements": 3,
+        "resource_constraints": 40,
+        "sol_time": 63.433544,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.045082939,
+        "status": "ok",
+        "total_time": 0.056663153,
+        "travel_constraints": 802,
+        "ub": 7655
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 18.176469802856445,
+    "conflicting_visit_pairs": 1632,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 57,
+    "name": "stationA10",
+    "solves": [
+      {
+        "added_conflict_pairs": 30,
+        "algorithm_time": 0.009914338999999998,
+        "cost": 6565,
+        "delay_cost_type": "Continuous",
+        "iteration": 5,
+        "lb": 6565,
+        "refinements": 4,
+        "resource_constraints": 30,
+        "sol_time": 59.799172,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.027189912,
+        "status": "ok",
+        "total_time": 0.037103622,
+        "travel_constraints": 618,
+        "ub": 6565
+      }
+    ],
+    "trains": 17
+  },
+  {
+    "avg_tracks": 20.482759475708008,
+    "conflicting_visit_pairs": 6144,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 58,
+    "name": "stationA11",
+    "solves": [
+      {
+        "added_conflict_pairs": 195,
+        "algorithm_time": 0.024660127000004195,
+        "delay_cost_type": "Continuous",
+        "iteration": 7,
+        "lb": 16441,
+        "refinements": 6,
+        "resource_constraints": 195,
+        "sol_time": 120331.33382500001,
+        "solver_name": "BigMLazy",
+        "solver_time": 119.978016445,
+        "status": "timeout",
+        "total_time": 120.002675566,
+        "travel_constraints": 1188,
+        "ub": 23468
+      }
+    ],
+    "trains": 29
+  },
+  {
+    "avg_tracks": 21.714284896850586,
+    "conflicting_visit_pairs": 6393,
+    "conflicts": 33,
+    "delay_cost_type": "Continuous",
+    "index": 59,
+    "name": "stationA12",
+    "solves": [
+      {
+        "added_conflict_pairs": 223,
+        "algorithm_time": 0.03433878199999185,
+        "delay_cost_type": "Continuous",
+        "iteration": 8,
+        "lb": 17949,
+        "refinements": 7,
+        "resource_constraints": 223,
+        "sol_time": 120473.325289,
+        "solver_name": "BigMLazy",
+        "solver_time": 119.967682108,
+        "status": "timeout",
+        "total_time": 120.002018038,
+        "travel_constraints": 1216,
+        "ub": 24974
+      }
+    ],
+    "trains": 28
+  },
+  {
+    "avg_tracks": 17.33333396911621,
+    "conflicting_visit_pairs": 2022,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 60,
+    "name": "stationB1",
+    "solves": [
+      {
+        "added_conflict_pairs": 27,
+        "algorithm_time": 0.008464636000000005,
+        "cost": 4246,
+        "delay_cost_type": "Continuous",
+        "iteration": 3,
+        "lb": 4246,
+        "refinements": 2,
+        "resource_constraints": 27,
+        "sol_time": 39.338356,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.024137396,
+        "status": "ok",
+        "total_time": 0.032600847,
+        "travel_constraints": 624,
+        "ub": 4246
+      }
+    ],
+    "trains": 18
+  },
+  {
+    "avg_tracks": 14.800000190734863,
+    "conflicting_visit_pairs": 87,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 61,
+    "name": "stationB2",
+    "solves": [
+      {
+        "added_conflict_pairs": 5,
+        "algorithm_time": 0.002095132,
+        "cost": 4798,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 4798,
+        "refinements": 1,
+        "resource_constraints": 5,
+        "sol_time": 3.9679729999999998,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.001712879,
+        "status": "ok",
+        "total_time": 0.003807312,
+        "travel_constraints": 148,
+        "ub": 4798
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 16.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 20,
+    "delay_cost_type": "Continuous",
+    "index": 62,
+    "name": "stationB3",
+    "solves": [
+      {
+        "added_conflict_pairs": 5,
+        "algorithm_time": 0.0023840699999999994,
+        "cost": 674,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 674,
+        "refinements": 1,
+        "resource_constraints": 5,
+        "sol_time": 6.581288,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.004021463,
+        "status": "ok",
+        "total_time": 0.006404545,
+        "travel_constraints": 168,
+        "ub": 674
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.949999809265137,
+    "conflicting_visit_pairs": 2246,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 63,
+    "name": "stationB4",
+    "solves": [
+      {
+        "added_conflict_pairs": 43,
+        "algorithm_time": 0.011252421999999998,
+        "cost": 62616,
+        "delay_cost_type": "Continuous",
+        "iteration": 6,
+        "lb": 62616,
+        "refinements": 5,
+        "resource_constraints": 43,
+        "sol_time": 80.002808,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.068577978,
+        "status": "ok",
+        "total_time": 0.079829916,
+        "travel_constraints": 638,
+        "ub": 62616
+      }
+    ],
+    "trains": 20
+  },
+  {
+    "avg_tracks": 17.799999237060547,
+    "conflicting_visit_pairs": 136,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 64,
+    "name": "stationB5",
+    "solves": [
+      {
+        "added_conflict_pairs": 10,
+        "algorithm_time": 0.004505863000000001,
+        "cost": 1485,
+        "delay_cost_type": "Continuous",
+        "iteration": 6,
+        "lb": 1485,
+        "refinements": 5,
+        "resource_constraints": 10,
+        "sol_time": 13.563532,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.008830674,
+        "status": "ok",
+        "total_time": 0.013335732,
+        "travel_constraints": 178,
+        "ub": 1485
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.199999809265137,
+    "conflicting_visit_pairs": 93,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 65,
+    "name": "stationB6",
+    "solves": [
+      {
+        "added_conflict_pairs": 3,
+        "algorithm_time": 0.0018197100000000002,
+        "cost": 461,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 461,
+        "refinements": 1,
+        "resource_constraints": 3,
+        "sol_time": 3.6182100000000004,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.001653236,
+        "status": "ok",
+        "total_time": 0.003472218,
+        "travel_constraints": 152,
+        "ub": 461
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 15.25,
+    "conflicting_visit_pairs": 2865,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 66,
+    "name": "stationB7",
+    "solves": [
+      {
+        "added_conflict_pairs": 46,
+        "algorithm_time": 0.011842667000000001,
+        "cost": 59333,
+        "delay_cost_type": "Continuous",
+        "iteration": 5,
+        "lb": 59333,
+        "refinements": 4,
+        "resource_constraints": 46,
+        "sol_time": 170.51750900000002,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.158513352,
+        "status": "ok",
+        "total_time": 0.170354464,
+        "travel_constraints": 732,
+        "ub": 59333
+      }
+    ],
+    "trains": 24
+  },
+  {
+    "avg_tracks": 13.399999618530273,
+    "conflicting_visit_pairs": 72,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 67,
+    "name": "stationB8",
+    "solves": [
+      {
+        "added_conflict_pairs": 5,
+        "algorithm_time": 0.001982823,
+        "cost": 2300,
+        "delay_cost_type": "Continuous",
+        "iteration": 3,
+        "lb": 2300,
+        "refinements": 2,
+        "resource_constraints": 5,
+        "sol_time": 5.341016,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.003199121,
+        "status": "ok",
+        "total_time": 0.005181258,
+        "travel_constraints": 134,
+        "ub": 2300
+      }
+    ],
+    "trains": 5
+  },
+  {
+    "avg_tracks": 13.571428298950195,
+    "conflicting_visit_pairs": 150,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 68,
+    "name": "stationB9",
+    "solves": [
+      {
+        "added_conflict_pairs": 9,
+        "algorithm_time": 0.002885864000000001,
+        "cost": 12006,
+        "delay_cost_type": "Continuous",
+        "iteration": 4,
+        "lb": 12006,
+        "refinements": 3,
+        "resource_constraints": 9,
+        "sol_time": 8.345226,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.005321818,
+        "status": "ok",
+        "total_time": 0.008206443,
+        "travel_constraints": 190,
+        "ub": 12006
+      }
+    ],
+    "trains": 7
+  },
+  {
+    "avg_tracks": 12.857142448425293,
+    "conflicting_visit_pairs": 126,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 69,
+    "name": "stationB10",
+    "solves": [
+      {
+        "added_conflict_pairs": 3,
+        "algorithm_time": 0.001823437,
+        "cost": 8761,
+        "delay_cost_type": "Continuous",
+        "iteration": 2,
+        "lb": 8761,
+        "refinements": 1,
+        "resource_constraints": 3,
+        "sol_time": 3.629238,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.001678956,
+        "status": "ok",
+        "total_time": 0.003501629,
+        "travel_constraints": 180,
+        "ub": 8761
+      }
+    ],
+    "trains": 7
+  },
+  {
+    "avg_tracks": 15.399999618530273,
+    "conflicting_visit_pairs": 3202,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 70,
+    "name": "stationB11",
+    "solves": [
+      {
+        "added_conflict_pairs": 55,
+        "algorithm_time": 0.011804505999999992,
+        "cost": 72973,
+        "delay_cost_type": "Continuous",
+        "iteration": 5,
+        "lb": 72973,
+        "refinements": 4,
+        "resource_constraints": 55,
+        "sol_time": 325.248287,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.31323927,
+        "status": "ok",
+        "total_time": 0.325042739,
+        "travel_constraints": 770,
+        "ub": 72973
+      }
+    ],
+    "trains": 25
+  },
+  {
+    "avg_tracks": 16.214284896850586,
+    "conflicting_visit_pairs": 970,
+    "conflicts": 25,
+    "delay_cost_type": "Continuous",
+    "index": 71,
+    "name": "stationB12",
+    "solves": [
+      {
+        "added_conflict_pairs": 30,
+        "algorithm_time": 0.009396400000000006,
+        "cost": 16909,
+        "delay_cost_type": "Continuous",
+        "iteration": 7,
+        "lb": 16909,
+        "refinements": 6,
+        "resource_constraints": 30,
+        "sol_time": 45.388048,
+        "solver_name": "BigMLazy",
+        "solver_time": 0.035789615,
+        "status": "ok",
+        "total_time": 0.045185008,
+        "travel_constraints": 454,
+        "ub": 16909
+      }
+    ],
+    "trains": 14
+  }
+]

@@ -1,39 +1,22 @@
-python3 - <<'PY'
-import json, csv
-from pathlib import Path
+# Usage: python3 quick_scripts/json_results_to_csv_batch.py <FILE.json> [--format compact|trace] [--overwrite]
+#
+# Default (compact): one row per solve, list/dict fields (e.g. value_trace) dropped.
+#                    CSV named <input stem>.csv — matches the older BigM/MIP layout.
+# --format trace:    one row per value_trace event, trace fields prefixed `trace_`.
+#                    CSV named <input stem>_trace.csv by default.
+# Override the auto suffix with --suffix '' (to always use plain .csv) or any string.
 
-inp = Path("results_sat_scl_cont_totalizer3_600s_increase_ex_timeout.json")
-out = Path("results_sat_scl_cont_totalizer3_600s_increase_ex_timeout.csv")
+# Compact (old format)
+python3 quick_scripts/json_results_to_csv_batch.py \
+  results_sat_scl_totalizer_infsteps180_cost_fix.json \
+  --format compact --overwrite
 
-data = json.loads(inp.read_text())
+# Trace (expand value_trace)
+python3 quick_scripts/json_results_to_csv_batch.py \
+  results_sat_scl_totalizer_infsteps180_cost_fix.json \
+  --format trace --overwrite
 
-rows = []
-cols = set()
-
-for p in data:
-    base = {
-        "index": p.get("index"),
-        "name": p.get("name"),
-        "trains": p.get("trains"),
-        "conflicts": p.get("conflicts"),
-        "avg_tracks": p.get("avg_tracks"),
-        "conflicting_visit_pairs": p.get("conflicting_visit_pairs"),
-        "delay_cost_type": p.get("delay_cost_type"),
-    }
-    for s in p.get("solves", []):
-        row = dict(base)
-        if isinstance(s, dict):
-            row.update(s)
-        else:
-            row["solve"] = s
-        rows.append(row)
-        cols.update(row.keys())
-
-cols = sorted(cols)
-with out.open("w", newline="") as f:
-    w = csv.DictWriter(f, fieldnames=cols)
-    w.writeheader()
-    w.writerows(rows)
-
-print("Wrote", out)
-PY
+# Convert multiple at once
+python3 quick_scripts/json_results_to_csv_batch.py \
+  results_*.json \
+  --format compact --overwrite

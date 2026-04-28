@@ -1,7 +1,8 @@
 use std::{
     cell::RefCell,
-    collections::{BTreeMap, HashMap, HashSet},
-    time::Instant,
+    collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    sync::mpsc,
+    time::{Duration, Instant},
 };
 
 use crate::{
@@ -9,22 +10,41 @@ use crate::{
     problem::{DelayCostType, Problem},
     solvers::heuristic,
 };
+use rustsat::{
+    encodings::{
+        pb::{BoundUpper, BoundUpperIncremental, Encode as PbEncode, GeneralizedTotalizer},
+        CollectClauses,
+    },
+    instances::ManageVars,
+    solvers::{
+        Interrupt as RsInterrupt, InterruptSolver as RsInterruptSolver, Solve as RsSolve,
+        SolveIncremental as RsSolveIncremental, SolveStats as RsSolveStats,
+        SolverResult as RsSolverResult,
+    },
+    types::{
+        Assignment as RsAssignment, Clause as RsClause, Lit as RsLit, TernaryVal as RsTernaryVal,
+        Var as RsVar,
+    },
+    OutOfMemory as RsOutOfMemory,
+};
+use rustsat_glucose::core::Glucose as RsGlucose;
 use satcoder::{
-    prelude::SymbolicModel, Bool, SatInstance, SatSolverWithCore,
+    prelude::SymbolicModel, Bool, SatInstance, SatModel, SatResult, SatResultWithCore, SatSolver,
+    SatSolverWithCore,
 };
 use typed_index_collections::TiVec;
 
 use super::{
     common::{do_output_stats, extract_solution, IterationType, Occ, SolveStats, VisitId},
     costtree::CostTree,
-    SolverError,
 };
+use crate::solvers::SolverError;
+
+type NativeLit = RsLit;
 
 #[derive(Clone, Copy, Debug)]
 pub enum SatBoundMode {
-    /// Ràng buộc UB được thêm vĩnh viễn bằng clause (phù hợp siết UB đơn điệu: UB = UB-1).
     AddClauses,
-    /// Ràng buộc UB được áp bằng assumptions (incremental “sạch”, tiện cho thử nhiều UB mà không làm bẩn CNF).
     Assumptions,
 }
 
@@ -45,109 +65,274 @@ struct ResourceCliqueRowKey {
     members: Vec<(VisitId, i32)>,
 }
 
-/// NSC (Nested Sorting or Number Series) Pseudo-Boolean Encoder
-/// Implements incremental PB encoding sums up to a required threshold (k).
-/// It creates bits R_{i, j} where R_{i, j} = 1 means the sum of the first i weights is at least j.
-struct NscEncoder<L: satcoder::Lit> {
-    // Each element is a vector representing R_{i, j} where j goes from 1 to pos_i.
-    // Index i in `r` corresponds to the i-th added weight.
-    r: Vec<Vec<Bool<L>>>,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SatObjectiveEncoding {
+    Scpb,
+    IncrementalTotalizer,
+    BitTotalizer,
 }
 
-impl<L: satcoder::Lit + Copy> NscEncoder<L> {
+#[derive(Clone, Copy, Debug)]
+pub struct SatDddSettings {
+    pub use_precedence_graph: bool,
+}
+
+impl Default for SatDddSettings {
+    fn default() -> Self {
+        Self {
+            use_precedence_graph: true,
+        }
+    }
+}
+
+#[derive(Default)]
+struct NativeSolver {
+    inner: RsGlucose,
+    next_var: u32,
+    solve_timeout: Option<Duration>,
+    was_interrupted: bool,
+}
+
+impl NativeSolver {
     fn new() -> Self {
-        Self { r: Vec::new() }
+        Self::default()
     }
 
-    /// Incrementally adds a new variable `x` with positive integer weight `w` to the sum.
-    /// `max_k` is the maximum threshold we care about tracking exactly.
-    /// If the running sum can exceed `max_k`, the variables stop at `max_k`.
-    fn add_variable(
+    fn reserve_var(&mut self, var: RsVar) {
+        self.inner.reserve(var).expect("glucose reserve failed");
+        let next_free = var.idx32() + 1;
+        if next_free > self.next_var {
+            self.next_var = next_free;
+        }
+    }
+
+    fn reserve_clause(&mut self, clause: &RsClause) {
+        if let Some(max_var) = AsRef::<[RsLit]>::as_ref(clause)
+            .iter()
+            .map(|lit| lit.var())
+            .max()
+        {
+            self.reserve_var(max_var);
+        }
+    }
+
+    fn set_solve_timeout(&mut self, timeout: Option<Duration>) {
+        self.solve_timeout = timeout;
+    }
+
+    fn take_interrupted(&mut self) -> bool {
+        std::mem::take(&mut self.was_interrupted)
+    }
+}
+
+impl std::fmt::Debug for NativeSolver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("RustSATGlucoseNative")
+    }
+}
+
+#[derive(Debug)]
+struct NativeModel(RsAssignment);
+
+impl SatModel for NativeModel {
+    type Lit = NativeLit;
+
+    fn lit_value(&self, l: &Self::Lit) -> bool {
+        matches!(self.0.lit_value(*l), RsTernaryVal::True)
+    }
+}
+
+enum NativeSolveResult {
+    Sat(Box<dyn SatModel<Lit = NativeLit>>),
+    Unsat(Box<[NativeLit]>),
+    Interrupted,
+}
+
+impl SatInstance<NativeLit> for NativeSolver {
+    fn new_var(&mut self) -> Bool<NativeLit> {
+        let v = RsVar::new(self.next_var);
+        self.next_var += 1;
+        self.inner.reserve(v).expect("glucose reserve failed");
+        Bool::Lit(v.pos_lit())
+    }
+
+    fn add_clause<IL: Into<Bool<NativeLit>>, I: IntoIterator<Item = IL>>(&mut self, clause: I) {
+        let mut lits: Vec<NativeLit> = Vec::new();
+        for b in clause {
+            match b.into() {
+                Bool::Const(true) => return,
+                Bool::Const(false) => {}
+                Bool::Lit(l) => lits.push(l),
+            }
+        }
+        let cl: RsClause = lits.into_iter().collect();
+        self.reserve_clause(&cl);
+        self.inner
+            .add_clause_ref(&cl)
+            .expect("glucose add_clause_ref failed");
+    }
+}
+
+impl NativeSolver {
+    fn solve_with_assumptions_owned(
         &mut self,
-        solver: &mut impl SatInstance<L>,
-        x: Bool<L>,
-        w: usize,
-        max_k: usize,
-    ) {
-        if w == 0 {
-            return;
-        }
-
-        // This is the (i)-th item. In our vectors, it's index `i`.
-        let i = self.r.len();
-
-        let prev_pos = if i == 0 { 0 } else { self.r[i - 1].len() };
-        let pos_i = std::cmp::min(max_k, prev_pos + w);
-
-        let mut r_i = Vec::with_capacity(pos_i);
-        for _ in 0..pos_i {
-            r_i.push(SatInstance::new_var(solver));
-        }
-
-        // C1: If x is chosen, sum is at least 1..min(w_i, max_k)
-        for j in 1..=std::cmp::min(w, max_k) {
-            SatInstance::add_clause(solver, vec![!x, r_i[j - 1]]);
-        }
-
-        if i > 0 {
-            // C2: Copy 1s from previous layer
-            for j in 1..=prev_pos {
-                SatInstance::add_clause(solver, vec![!self.r[i - 1][j - 1], r_i[j - 1]]);
+        assumptions: impl IntoIterator<Item = Bool<NativeLit>>,
+    ) -> NativeSolveResult {
+        self.was_interrupted = false;
+        let mut assumps: Vec<NativeLit> = Vec::new();
+        for a in assumptions {
+            match a {
+                Bool::Const(true) => {}
+                Bool::Const(false) => panic!("unsat assumption"),
+                Bool::Lit(l) => assumps.push(l),
             }
+        }
 
-            // C3: If x is chosen and prev layer reached j, this layer reaches j+w
-            for j in 1..=prev_pos {
-                if j + w <= pos_i {
-                    SatInstance::add_clause(
-                        solver,
-                        vec![!x, !self.r[i - 1][j - 1], r_i[(j + w) - 1]],
-                    );
+        let timeout_guard = self.solve_timeout.map(|limit| {
+            let interrupter = self.inner.interrupter();
+            let (done_tx, done_rx) = mpsc::channel();
+            let join_handle = std::thread::spawn(move || {
+                if done_rx.recv_timeout(limit).is_err() {
+                    interrupter.interrupt();
                 }
+            });
+            (done_tx, join_handle)
+        });
+
+        let result = self.inner.solve_assumps(&assumps);
+
+        if let Some((done_tx, join_handle)) = timeout_guard {
+            let _ = done_tx.send(());
+            let _ = join_handle.join();
+        }
+
+        match result {
+            Ok(RsSolverResult::Sat) => {
+                let model = self
+                    .inner
+                    .full_solution()
+                    .expect("glucose: failed to get full solution");
+                NativeSolveResult::Sat(Box::new(NativeModel(model)))
+            }
+            Ok(RsSolverResult::Unsat) => {
+                let core = self.inner.core().unwrap_or_default();
+                NativeSolveResult::Unsat(core.into_boxed_slice())
+            }
+            Ok(RsSolverResult::Interrupted) => {
+                self.was_interrupted = true;
+                NativeSolveResult::Interrupted
+            }
+            Err(e) => panic!("glucose solve error: {}", e),
+        }
+    }
+}
+
+impl SatSolverWithCore for NativeSolver {
+    type Lit = NativeLit;
+
+    fn solve_with_assumptions<'a>(
+        &'a mut self,
+        assumptions: impl IntoIterator<Item = Bool<Self::Lit>>,
+    ) -> SatResultWithCore<'a, Self::Lit> {
+        match self.solve_with_assumptions_owned(assumptions) {
+            NativeSolveResult::Sat(model) => SatResultWithCore::Sat(model),
+            NativeSolveResult::Unsat(core) => SatResultWithCore::Unsat(core),
+            NativeSolveResult::Interrupted => {
+                self.was_interrupted = true;
+                SatResultWithCore::Unsat(Box::new([]))
             }
         }
+    }
+}
 
-        self.r.push(r_i);
+impl SatSolver for NativeSolver {
+    type Lit = NativeLit;
+
+    fn solve<'a>(&'a mut self) -> SatResult<'a, Self::Lit> {
+        match self.solve_with_assumptions(std::iter::empty()) {
+            SatResultWithCore::Sat(m) => SatResult::Sat(m),
+            SatResultWithCore::Unsat(_) => SatResult::Unsat,
+        }
+    }
+}
+
+struct NativeClauseCollector<'a> {
+    inner: &'a mut RsGlucose,
+}
+
+impl CollectClauses for NativeClauseCollector<'_> {
+    fn n_clauses(&self) -> usize {
+        RsSolveStats::n_clauses(&*self.inner)
     }
 
-    /// Returns the exact bound variable indicating whether the sum is >= target.
-    /// To enforce sum <= k, we will assert NOT(has_sum_reached(k + 1)).
-    fn has_sum_reached(&self, target: usize) -> Option<Bool<L>> {
-        if target == 0 {
-            return None; /* Always true implicitly, but hard to return a literal */
+    fn extend_clauses<T>(&mut self, cl_iter: T) -> Result<(), RsOutOfMemory>
+    where
+        T: IntoIterator<Item = RsClause>,
+    {
+        for cl in cl_iter {
+            if let Some(max_var) = AsRef::<[RsLit]>::as_ref(&cl)
+                .iter()
+                .map(|lit| lit.var())
+                .max()
+            {
+                self.inner
+                    .reserve(max_var)
+                    .map_err(|_| RsOutOfMemory::ExternalApi)?;
+            }
+            self.inner
+                .add_clause_ref(&cl)
+                .map_err(|_| RsOutOfMemory::ExternalApi)?;
         }
-        let last_layer = self.r.last()?;
-        if target <= last_layer.len() {
-            Some(last_layer[target - 1])
+        Ok(())
+    }
+}
+
+struct NativeVarManager<'a> {
+    next_var: &'a mut u32,
+}
+
+impl ManageVars for NativeVarManager<'_> {
+    fn new_var(&mut self) -> RsVar {
+        let v = RsVar::new(*self.next_var);
+        *self.next_var += 1;
+        v
+    }
+
+    fn max_var(&self) -> Option<RsVar> {
+        if *self.next_var == 0 {
+            None
         } else {
-            None // Sum structurally cannot reach `target` yet
+            Some(RsVar::new(*self.next_var - 1))
         }
     }
+
+    fn increase_next_free(&mut self, v: RsVar) -> bool {
+        if v.idx32() > *self.next_var {
+            *self.next_var = v.idx32();
+            return true;
+        }
+        false
+    }
+
+    fn combine(&mut self, other: Self) {
+        let other_next = *other.next_var;
+        if other_next > *self.next_var {
+            *self.next_var = other_next;
+        }
+    }
+
+    fn n_used(&self) -> u32 {
+        *self.next_var
+    }
+
+    fn forget_from(&mut self, min_var: RsVar) {
+        *self.next_var = std::cmp::min(*self.next_var, min_var.idx32());
+    }
 }
 
-fn rebuild_nsc_encoder<L: satcoder::Lit + Copy>(
-    solver: &mut impl SatInstance<L>,
-    nsc_enc: &mut NscEncoder<L>,
-    terms: &[(Bool<L>, usize)],
-    max_k: usize,
-) {
-    *nsc_enc = NscEncoder::new();
-    if max_k == 0 {
-        return;
-    }
-    for &(lit, weight) in terms {
-        nsc_enc.add_variable(solver, lit, weight, max_k);
-    }
-}
-
-/// SAT-only version of the DDD Ladder solver.
-///
-/// Idea:
-/// - keep the exact same DDD refinement (time-point generation + conflict clauses)
-/// - replace MaxSAT objective by a SAT PB budget over objective literals
-/// - solve repeatedly by tightening an upper bound (UB) on total cost
-pub fn solve<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
+pub fn solve<L: satcoder::Lit + Copy + std::fmt::Debug>(
     mk_env: impl Fn() -> grb::Env + Send + 'static,
-    solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
     problem: &Problem,
     timeout: f64,
     delay_cost_type: DelayCostType,
@@ -155,7 +340,7 @@ pub fn solve<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
 ) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
     solve_with_mode(
         mk_env,
-        solver,
+        _solver,
         problem,
         timeout,
         delay_cost_type,
@@ -164,9 +349,56 @@ pub fn solve<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
     )
 }
 
-pub fn solve_incremental<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
+pub fn solve_with_encoding<L: satcoder::Lit + Copy + std::fmt::Debug>(
     mk_env: impl Fn() -> grb::Env + Send + 'static,
-    solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    problem: &Problem,
+    timeout: f64,
+    delay_cost_type: DelayCostType,
+    encoding: SatObjectiveEncoding,
+    output_stats: impl FnMut(String, serde_json::Value),
+) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
+    solve_with_encoding_and_settings(
+        mk_env,
+        _solver,
+        problem,
+        timeout,
+        delay_cost_type,
+        encoding,
+        SatDddSettings::default(),
+        output_stats,
+    )
+}
+
+pub fn solve_with_encoding_and_settings<L: satcoder::Lit + Copy + std::fmt::Debug>(
+    mk_env: impl Fn() -> grb::Env + Send + 'static,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    problem: &Problem,
+    timeout: f64,
+    delay_cost_type: DelayCostType,
+    encoding: SatObjectiveEncoding,
+    settings: SatDddSettings,
+    output_stats: impl FnMut(String, serde_json::Value),
+) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
+    let mode = SatBoundMode::Assumptions;
+    solve_native_debug_with_mode(
+        mk_env,
+        problem,
+        timeout,
+        delay_cost_type,
+        encoding,
+        settings,
+        mode,
+        SatPrecEncoding::Plain,
+        SatSearchMode::UbSearch,
+        |_| {},
+        output_stats,
+    )
+}
+
+pub fn solve_incremental<L: satcoder::Lit + Copy + std::fmt::Debug>(
+    mk_env: impl Fn() -> grb::Env + Send + 'static,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
     problem: &Problem,
     timeout: f64,
     delay_cost_type: DelayCostType,
@@ -174,7 +406,7 @@ pub fn solve_incremental<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
 ) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
     solve_debug_with_mode(
         mk_env,
-        solver,
+        _solver,
         problem,
         timeout,
         delay_cost_type,
@@ -186,9 +418,55 @@ pub fn solve_incremental<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
     )
 }
 
-pub fn solve_scl<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
+pub fn solve_incremental_with_encoding<L: satcoder::Lit + Copy + std::fmt::Debug>(
     mk_env: impl Fn() -> grb::Env + Send + 'static,
-    solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    problem: &Problem,
+    timeout: f64,
+    delay_cost_type: DelayCostType,
+    encoding: SatObjectiveEncoding,
+    output_stats: impl FnMut(String, serde_json::Value),
+) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
+    solve_incremental_with_encoding_and_settings(
+        mk_env,
+        _solver,
+        problem,
+        timeout,
+        delay_cost_type,
+        encoding,
+        SatDddSettings::default(),
+        output_stats,
+    )
+}
+
+pub fn solve_incremental_with_encoding_and_settings<L: satcoder::Lit + Copy + std::fmt::Debug>(
+    mk_env: impl Fn() -> grb::Env + Send + 'static,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    problem: &Problem,
+    timeout: f64,
+    delay_cost_type: DelayCostType,
+    encoding: SatObjectiveEncoding,
+    settings: SatDddSettings,
+    output_stats: impl FnMut(String, serde_json::Value),
+) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
+    solve_native_debug_with_mode(
+        mk_env,
+        problem,
+        timeout,
+        delay_cost_type,
+        encoding,
+        settings,
+        SatBoundMode::Assumptions,
+        SatPrecEncoding::Plain,
+        SatSearchMode::Invalid,
+        |_| {},
+        output_stats,
+    )
+}
+
+pub fn solve_scl<L: satcoder::Lit + Copy + std::fmt::Debug>(
+    mk_env: impl Fn() -> grb::Env + Send + 'static,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
     problem: &Problem,
     timeout: f64,
     delay_cost_type: DelayCostType,
@@ -196,7 +474,74 @@ pub fn solve_scl<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
 ) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
     solve_with_mode_scl(
         mk_env,
-        solver,
+        _solver,
+        problem,
+        timeout,
+        delay_cost_type,
+        SatBoundMode::AddClauses,
+        SatSearchMode::UbSearch,
+        output_stats,
+    )
+}
+
+pub fn solve_scl_with_encoding<L: satcoder::Lit + Copy + std::fmt::Debug>(
+    mk_env: impl Fn() -> grb::Env + Send + 'static,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    problem: &Problem,
+    timeout: f64,
+    delay_cost_type: DelayCostType,
+    encoding: SatObjectiveEncoding,
+    output_stats: impl FnMut(String, serde_json::Value),
+) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
+    solve_scl_with_encoding_and_settings(
+        mk_env,
+        _solver,
+        problem,
+        timeout,
+        delay_cost_type,
+        encoding,
+        SatDddSettings::default(),
+        output_stats,
+    )
+}
+
+pub fn solve_scl_with_encoding_and_settings<L: satcoder::Lit + Copy + std::fmt::Debug>(
+    mk_env: impl Fn() -> grb::Env + Send + 'static,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    problem: &Problem,
+    timeout: f64,
+    delay_cost_type: DelayCostType,
+    encoding: SatObjectiveEncoding,
+    settings: SatDddSettings,
+    output_stats: impl FnMut(String, serde_json::Value),
+) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
+    let mode = SatBoundMode::Assumptions;
+    solve_native_debug_with_mode(
+        mk_env,
+        problem,
+        timeout,
+        delay_cost_type,
+        encoding,
+        settings,
+        mode,
+        SatPrecEncoding::Scl,
+        SatSearchMode::UbSearch,
+        |_| {},
+        output_stats,
+    )
+}
+
+pub fn solve_incremental_scl<L: satcoder::Lit + Copy + std::fmt::Debug>(
+    mk_env: impl Fn() -> grb::Env + Send + 'static,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    problem: &Problem,
+    timeout: f64,
+    delay_cost_type: DelayCostType,
+    output_stats: impl FnMut(String, serde_json::Value),
+) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
+    solve_with_mode_scl(
+        mk_env,
+        _solver,
         problem,
         timeout,
         delay_cost_type,
@@ -206,41 +551,70 @@ pub fn solve_scl<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
     )
 }
 
-pub fn solve_incremental_scl<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
+pub fn solve_incremental_scl_with_encoding<L: satcoder::Lit + Copy + std::fmt::Debug>(
     mk_env: impl Fn() -> grb::Env + Send + 'static,
-    solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
     problem: &Problem,
     timeout: f64,
     delay_cost_type: DelayCostType,
+    encoding: SatObjectiveEncoding,
     output_stats: impl FnMut(String, serde_json::Value),
 ) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
-    solve_with_mode_scl(
+    solve_incremental_scl_with_encoding_and_settings(
         mk_env,
-        solver,
+        _solver,
         problem,
         timeout,
         delay_cost_type,
-        SatBoundMode::Assumptions,
-        SatSearchMode::UbSearch,
+        encoding,
+        SatDddSettings::default(),
         output_stats,
     )
 }
 
-pub fn solve_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
+pub fn solve_incremental_scl_with_encoding_and_settings<
+    L: satcoder::Lit + Copy + std::fmt::Debug,
+>(
     mk_env: impl Fn() -> grb::Env + Send + 'static,
-    solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    problem: &Problem,
+    timeout: f64,
+    delay_cost_type: DelayCostType,
+    encoding: SatObjectiveEncoding,
+    settings: SatDddSettings,
+    output_stats: impl FnMut(String, serde_json::Value),
+) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
+    solve_native_debug_with_mode(
+        mk_env,
+        problem,
+        timeout,
+        delay_cost_type,
+        encoding,
+        settings,
+        SatBoundMode::Assumptions,
+        SatPrecEncoding::Scl,
+        SatSearchMode::UbSearch,
+        |_| {},
+        output_stats,
+    )
+}
+
+pub fn solve_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug>(
+    mk_env: impl Fn() -> grb::Env + Send + 'static,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
     problem: &Problem,
     timeout: f64,
     delay_cost_type: DelayCostType,
     mode: SatBoundMode,
     output_stats: impl FnMut(String, serde_json::Value),
 ) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
-    solve_debug_with_mode(
+    solve_native_debug_with_mode(
         mk_env,
-        solver,
         problem,
         timeout,
         delay_cost_type,
+        SatObjectiveEncoding::Scpb,
+        SatDddSettings::default(),
         mode,
         SatPrecEncoding::Plain,
         SatSearchMode::UbSearch,
@@ -249,9 +623,9 @@ pub fn solve_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
     )
 }
 
-pub fn solve_with_mode_scl<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
+pub fn solve_with_mode_scl<L: satcoder::Lit + Copy + std::fmt::Debug>(
     mk_env: impl Fn() -> grb::Env + Send + 'static,
-    solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
     problem: &Problem,
     timeout: f64,
     delay_cost_type: DelayCostType,
@@ -259,12 +633,13 @@ pub fn solve_with_mode_scl<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
     search: SatSearchMode,
     output_stats: impl FnMut(String, serde_json::Value),
 ) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
-    solve_debug_with_mode(
+    solve_native_debug_with_mode(
         mk_env,
-        solver,
         problem,
         timeout,
         delay_cost_type,
+        SatObjectiveEncoding::Scpb,
+        SatDddSettings::default(),
         mode,
         SatPrecEncoding::Scl,
         search,
@@ -274,6 +649,426 @@ pub fn solve_with_mode_scl<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
 }
 
 thread_local! { pub static WATCH : RefCell<Option<(usize,usize)>> = RefCell::new(None); }
+
+fn add_guarded_clause(
+    solver: &mut NativeSolver,
+    gate: Option<Bool<NativeLit>>,
+    clause: impl IntoIterator<Item = Bool<NativeLit>>,
+) {
+    let mut lits: Vec<Bool<NativeLit>> = clause.into_iter().collect();
+    if let Some(sel) = gate {
+        lits.insert(0, !sel);
+    }
+    SatInstance::add_clause(solver, lits);
+}
+
+fn encode_scpb_leq(
+    solver: &mut NativeSolver,
+    terms: &[(NativeLit, usize)],
+    bound: usize,
+    gate: Option<Bool<NativeLit>>,
+) {
+    if terms.is_empty() {
+        return;
+    }
+
+    let mut bounded_terms: Vec<(Bool<NativeLit>, usize)> = Vec::with_capacity(terms.len());
+    for &(lit, weight) in terms {
+        if weight == 0 {
+            continue;
+        }
+
+        let term = Bool::from_lit(lit);
+        if weight > bound {
+            add_guarded_clause(solver, gate, [!term]);
+        } else {
+            bounded_terms.push((term, weight));
+        }
+    }
+
+    if bounded_terms.is_empty() {
+        return;
+    }
+
+    if bound == 0 {
+        for (term, _) in bounded_terms {
+            add_guarded_clause(solver, gate, [!term]);
+        }
+        return;
+    }
+
+    if bounded_terms.len() == 1 {
+        return;
+    }
+
+    let n_terms = bounded_terms.len();
+    let mut counters: Vec<Vec<Bool<NativeLit>>> = Vec::with_capacity(n_terms - 1);
+    let mut prefix_weight = 0usize;
+
+    for &(_, weight) in bounded_terms.iter().take(n_terms - 1) {
+        prefix_weight = (prefix_weight + weight).min(bound);
+        let mut row = Vec::with_capacity(prefix_weight);
+        for _ in 0..prefix_weight {
+            row.push(SatInstance::new_var(solver));
+        }
+        counters.push(row);
+    }
+
+    // SCPB_<=k clauses (1), (2), and (3) on the first n-1 weighted terms.
+    for term_idx in 0..(n_terms - 1) {
+        let (term, weight) = bounded_terms[term_idx];
+        let row = &counters[term_idx];
+
+        for bit_idx in 0..weight.min(row.len()) {
+            add_guarded_clause(solver, gate, [!term, row[bit_idx]]);
+        }
+
+        if term_idx == 0 {
+            continue;
+        }
+
+        let prev_row = &counters[term_idx - 1];
+        for bit_idx in 0..prev_row.len() {
+            add_guarded_clause(solver, gate, [!prev_row[bit_idx], row[bit_idx]]);
+
+            let target_idx = bit_idx + weight;
+            if target_idx < row.len() {
+                add_guarded_clause(solver, gate, [!term, !prev_row[bit_idx], row[target_idx]]);
+            }
+        }
+    }
+
+    // SCPB_<=k clause (8) on the remaining term against the previous counter row.
+    for term_idx in 1..n_terms {
+        let (term, weight) = bounded_terms[term_idx];
+        let prev_row = &counters[term_idx - 1];
+        let threshold_bit = bound + 1 - weight;
+        if threshold_bit <= prev_row.len() {
+            add_guarded_clause(solver, gate, [!term, !prev_row[threshold_bit - 1]]);
+        }
+    }
+}
+
+fn encode_exact_unary_counter_limited(
+    solver: &mut NativeSolver,
+    inputs: &[Bool<NativeLit>],
+    max_threshold: usize,
+) -> Vec<Bool<NativeLit>> {
+    if max_threshold == 0 {
+        return Vec::new();
+    }
+
+    let mut fixed_true = 0usize;
+    let mut variable_inputs = Vec::new();
+
+    for input in inputs.iter().copied() {
+        match input {
+            Bool::Const(true) => fixed_true += 1,
+            Bool::Const(false) => {}
+            Bool::Lit(_) => variable_inputs.push(input),
+        }
+    }
+
+    let max_variable_threshold = max_threshold.saturating_sub(fixed_true);
+    let variable_count =
+        encode_balanced_totalizer_limited(solver, &variable_inputs, max_variable_threshold);
+
+    let mut outputs = Vec::with_capacity(max_threshold);
+    for threshold in 1..=max_threshold {
+        if threshold <= fixed_true {
+            outputs.push(true.into());
+        } else {
+            let variable_threshold = threshold - fixed_true;
+            if variable_threshold <= variable_count.len() {
+                outputs.push(variable_count[variable_threshold - 1]);
+            } else {
+                outputs.push(false.into());
+            }
+        }
+    }
+    outputs
+}
+
+fn unary_counter_at(counter: &[Bool<NativeLit>], threshold: usize) -> Bool<NativeLit> {
+    if threshold == 0 {
+        true.into()
+    } else {
+        counter.get(threshold - 1).copied().unwrap_or(false.into())
+    }
+}
+
+fn encode_totalizer_merge_limited(
+    solver: &mut NativeSolver,
+    left: &[Bool<NativeLit>],
+    right: &[Bool<NativeLit>],
+    limit: usize,
+) -> Vec<Bool<NativeLit>> {
+    let out_len = limit.min(left.len() + right.len());
+    if out_len == 0 {
+        return Vec::new();
+    }
+
+    let mut out = Vec::with_capacity(out_len);
+    for _ in 0..out_len {
+        out.push(SatInstance::new_var(solver));
+    }
+
+    for i in 1..=left.len().min(out_len) {
+        SatInstance::add_clause(solver, vec![!left[i - 1], out[i - 1]]);
+    }
+    for j in 1..=right.len().min(out_len) {
+        SatInstance::add_clause(solver, vec![!right[j - 1], out[j - 1]]);
+    }
+    for i in 1..=left.len() {
+        for j in 1..=right.len() {
+            let threshold = i + j;
+            if threshold <= out_len {
+                SatInstance::add_clause(
+                    solver,
+                    vec![!left[i - 1], !right[j - 1], out[threshold - 1]],
+                );
+            }
+        }
+    }
+
+    for threshold in 1..=out_len {
+        for left_max in 0..threshold {
+            let right_max = threshold - 1 - left_max;
+            SatInstance::add_clause(
+                solver,
+                vec![
+                    !out[threshold - 1],
+                    unary_counter_at(left, left_max + 1),
+                    unary_counter_at(right, right_max + 1),
+                ],
+            );
+        }
+    }
+
+    for threshold in 2..=out_len {
+        SatInstance::add_clause(solver, vec![!out[threshold - 1], out[threshold - 2]]);
+    }
+
+    out
+}
+
+fn encode_balanced_totalizer_limited(
+    solver: &mut NativeSolver,
+    inputs: &[Bool<NativeLit>],
+    limit: usize,
+) -> Vec<Bool<NativeLit>> {
+    let limit = limit.min(inputs.len());
+    if limit == 0 || inputs.is_empty() {
+        return Vec::new();
+    }
+    if inputs.len() == 1 {
+        return vec![inputs[0]];
+    }
+
+    let mid = inputs.len() / 2;
+    let left = encode_balanced_totalizer_limited(solver, &inputs[..mid], limit);
+    let right = encode_balanced_totalizer_limited(solver, &inputs[mid..], limit);
+    encode_totalizer_merge_limited(solver, &left, &right, limit)
+}
+
+fn encode_parity_from_unary_counter(
+    solver: &mut NativeSolver,
+    ge: &[Bool<NativeLit>],
+) -> Bool<NativeLit> {
+    if ge.is_empty() {
+        return false.into();
+    }
+    if ge.len() == 1 {
+        return ge[0];
+    }
+
+    let parity = SatInstance::new_var(solver);
+    for count in 0..=ge.len() {
+        let expected_parity = if count % 2 == 1 { parity } else { !parity };
+        let clause = if count == 0 {
+            vec![ge[0], expected_parity]
+        } else if count == ge.len() {
+            vec![!ge[count - 1], expected_parity]
+        } else {
+            vec![!ge[count - 1], ge[count], expected_parity]
+        };
+        SatInstance::add_clause(solver, clause);
+    }
+
+    parity
+}
+
+fn shifted_bound(bound: usize, bit_idx: usize) -> usize {
+    if bit_idx >= usize::BITS as usize {
+        0
+    } else {
+        bound >> bit_idx
+    }
+}
+
+fn encode_bit_totalizer_sum_bits_with_overflow(
+    solver: &mut NativeSolver,
+    terms: &[(NativeLit, usize)],
+    bound: Option<usize>,
+) -> (Vec<Bool<NativeLit>>, Vec<Bool<NativeLit>>) {
+    let mut buckets: Vec<Vec<Bool<NativeLit>>> = Vec::new();
+    for &(lit, weight) in terms {
+        if weight == 0 {
+            continue;
+        }
+
+        let term = Bool::from_lit(lit);
+        let mut remaining = weight;
+        let mut bit_idx = 0usize;
+        while remaining > 0 {
+            if remaining & 1 == 1 {
+                if buckets.len() <= bit_idx {
+                    buckets.resize_with(bit_idx + 1, Vec::new);
+                }
+                buckets[bit_idx].push(term);
+            }
+            remaining >>= 1;
+            bit_idx += 1;
+        }
+    }
+
+    let mut sum_bits = Vec::new();
+    let mut overflow_lits = Vec::new();
+    let mut carry: Vec<Bool<NativeLit>> = Vec::new();
+    let mut bit_idx = 0usize;
+
+    while bit_idx < buckets.len() || !carry.is_empty() {
+        let mut units = Vec::new();
+        if bit_idx < buckets.len() {
+            units.extend(buckets[bit_idx].iter().copied());
+        }
+        units.extend(std::mem::take(&mut carry));
+
+        if units.is_empty() {
+            sum_bits.push(false.into());
+        } else {
+            let cap_count = bound.map(|b| shifted_bound(b, bit_idx));
+            let max_threshold = cap_count
+                .and_then(|cap| cap.checked_add(1))
+                .unwrap_or(units.len())
+                .min(units.len());
+            let ge = encode_exact_unary_counter_limited(solver, &units, max_threshold);
+            if let Some(cap) = cap_count {
+                if let Some(overflow_threshold) = cap.checked_add(1) {
+                    if overflow_threshold <= ge.len() {
+                        overflow_lits.push(ge[overflow_threshold - 1]);
+                    }
+                }
+            }
+            sum_bits.push(encode_parity_from_unary_counter(solver, &ge));
+            let max_carry = cap_count
+                .map(|cap| (cap / 2).min(ge.len() / 2))
+                .unwrap_or(ge.len() / 2);
+            carry = (1..=max_carry).map(|idx| ge[(2 * idx) - 1]).collect();
+        }
+
+        bit_idx += 1;
+    }
+
+    (sum_bits, overflow_lits)
+}
+
+fn usize_bit(value: usize, bit_idx: usize) -> bool {
+    bit_idx < usize::BITS as usize && ((value >> bit_idx) & 1) == 1
+}
+
+fn encode_binary_leq_constant(
+    solver: &mut NativeSolver,
+    bits: &[Bool<NativeLit>],
+    bound: usize,
+    gate: Option<Bool<NativeLit>>,
+) {
+    for bit_idx in 0..bits.len() {
+        if usize_bit(bound, bit_idx) {
+            continue;
+        }
+
+        let mut clause = Vec::with_capacity(bits.len() - bit_idx);
+        clause.push(!bits[bit_idx]);
+        for higher_idx in (bit_idx + 1)..bits.len() {
+            if usize_bit(bound, higher_idx) {
+                clause.push(!bits[higher_idx]);
+            } else {
+                clause.push(bits[higher_idx]);
+            }
+        }
+        add_guarded_clause(solver, gate, clause);
+    }
+}
+
+#[derive(Default)]
+struct BitTotalizerBoundNetwork {
+    encoded_terms: usize,
+    sum_bits: Vec<Bool<NativeLit>>,
+    overflow_lits: Vec<Bool<NativeLit>>,
+}
+
+#[derive(Default)]
+struct BitTotalizerObjective {
+    terms: Vec<(NativeLit, usize)>,
+    total_weight: usize,
+    bound_networks: HashMap<usize, BitTotalizerBoundNetwork>,
+    addclauses_bounds: HashMap<usize, usize>,
+    assumption_bounds: HashMap<usize, (usize, Bool<NativeLit>)>,
+}
+
+impl BitTotalizerObjective {
+    fn add_term(&mut self, lit: NativeLit, weight: usize) {
+        if weight == 0 {
+            return;
+        }
+        self.terms.push((lit, weight));
+        self.total_weight = self.total_weight.saturating_add(weight);
+    }
+
+    fn term_count(&self) -> usize {
+        self.terms.len()
+    }
+
+    fn ensure_bound_network(&mut self, solver: &mut NativeSolver, bound: usize) {
+        if self
+            .bound_networks
+            .get(&bound)
+            .map(|network| network.encoded_terms == self.terms.len())
+            .unwrap_or(false)
+        {
+            return;
+        }
+
+        let (sum_bits, overflow_lits) =
+            encode_bit_totalizer_sum_bits_with_overflow(solver, &self.terms, Some(bound));
+        self.bound_networks.insert(
+            bound,
+            BitTotalizerBoundNetwork {
+                encoded_terms: self.terms.len(),
+                sum_bits,
+                overflow_lits,
+            },
+        );
+    }
+
+    fn encode_leq(
+        &mut self,
+        solver: &mut NativeSolver,
+        bound: usize,
+        gate: Option<Bool<NativeLit>>,
+    ) {
+        self.ensure_bound_network(solver, bound);
+        let network = self
+            .bound_networks
+            .get(&bound)
+            .expect("bit totalizer bound network was just encoded");
+        for &overflow in &network.overflow_lits {
+            add_guarded_clause(solver, gate, [!overflow]);
+        }
+        encode_binary_leq_constant(solver, &network.sum_bits, bound, gate);
+    }
+}
 
 fn inject_solution_timepoints_sat<L: satcoder::Lit>(
     solver: &mut impl SatInstance<L>,
@@ -295,21 +1090,134 @@ fn inject_solution_timepoints_sat<L: satcoder::Lit>(
     }
 }
 
-pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
+fn compute_initial_heuristic_upper_bound<L: satcoder::Lit>(
+    mk_env: &impl Fn() -> grb::Env,
+    problem: &Problem,
+    delay_cost_type: DelayCostType,
+    occupations: &TiVec<VisitId, Occ<L>>,
+) -> Result<Option<(i32, Vec<Vec<i32>>)>, SolverError> {
+    let initial_solution = extract_solution(problem, occupations);
+    let env = mk_env();
+
+    for use_strong_branching in [false, true] {
+        if let Some(ub_sol) = heuristic::solve_heuristic_better(
+            &env,
+            problem,
+            delay_cost_type,
+            use_strong_branching,
+            Some(&initial_solution),
+        )? {
+            let ub_cost = problem.verify_solution(&ub_sol, delay_cost_type).unwrap();
+            return Ok(Some((ub_cost, ub_sol)));
+        }
+    }
+
+    Ok(None)
+}
+
+fn compute_effective_earliest(problem: &Problem) -> Vec<Vec<i32>> {
+    let mut effective = Vec::with_capacity(problem.trains.len());
+
+    for train in &problem.trains {
+        let mut train_bounds = Vec::with_capacity(train.visits.len());
+        let mut propagated_lb: Option<i32> = None;
+
+        for visit in &train.visits {
+            let lb = propagated_lb.map_or(visit.earliest, |prev_lb| prev_lb.max(visit.earliest));
+            train_bounds.push(lb);
+            propagated_lb = Some(lb + visit.travel_time);
+        }
+
+        effective.push(train_bounds);
+    }
+
+    effective
+}
+
+fn current_interval_choice_lit<L: satcoder::Lit>(
+    solver: &mut impl SatInstance<L>,
+    occupations: &TiVec<VisitId, Occ<L>>,
+    cache: &mut HashMap<(VisitId, i32, i32), Bool<L>>,
+    visit_id: VisitId,
+) -> Bool<L> {
+    let occ = &occupations[visit_id];
+    let idx = occ.incumbent_idx;
+    let start_t = occ.delays[idx].1;
+    let next_t = occ.delays[idx + 1].1;
+
+    if let Some(&lit) = cache.get(&(visit_id, start_t, next_t)) {
+        return lit;
+    }
+
+    let in_lit = occ.delays[idx].0;
+    let next_lit = occ.delays[idx + 1].0;
+    let chosen_lit = solver.new_var();
+
+    solver.add_clause(vec![!chosen_lit, in_lit]);
+    solver.add_clause(vec![!chosen_lit, !next_lit]);
+    solver.add_clause(vec![chosen_lit, !in_lit, next_lit]);
+
+    cache.insert((visit_id, start_t, next_t), chosen_lit);
+    chosen_lit
+}
+
+fn add_sequential_amo<L: satcoder::Lit>(solver: &mut impl SatInstance<L>, lits: &[Bool<L>]) {
+    match lits.len() {
+        0 | 1 => return,
+        2 => {
+            solver.add_clause(vec![!lits[0], !lits[1]]);
+            return;
+        }
+        _ => {}
+    }
+
+    let mut prefix = Vec::with_capacity(lits.len() - 1);
+    for _ in 0..(lits.len() - 1) {
+        prefix.push(solver.new_var());
+    }
+
+    solver.add_clause(vec![!lits[0], prefix[0]]);
+    for i in 1..(lits.len() - 1) {
+        solver.add_clause(vec![!lits[i], prefix[i]]);
+        solver.add_clause(vec![!prefix[i - 1], prefix[i]]);
+        solver.add_clause(vec![!lits[i], !prefix[i - 1]]);
+    }
+    solver.add_clause(vec![!lits[lits.len() - 1], !prefix[prefix.len() - 1]]);
+}
+
+fn add_pairwise_amo<L: satcoder::Lit>(solver: &mut impl SatInstance<L>, lits: &[Bool<L>]) {
+    for i in 0..lits.len() {
+        for j in (i + 1)..lits.len() {
+            solver.add_clause(vec![!lits[i], !lits[j]]);
+        }
+    }
+}
+
+fn add_hybrid_amo<L: satcoder::Lit>(solver: &mut impl SatInstance<L>, lits: &[Bool<L>]) {
+    const PAIRWISE_AMO_MAX_SIZE: usize = 5;
+    if lits.len() <= PAIRWISE_AMO_MAX_SIZE {
+        add_pairwise_amo(solver, lits);
+    } else {
+        add_sequential_amo(solver, lits);
+    }
+}
+
+pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug>(
     mk_env: impl Fn() -> grb::Env + Send + 'static,
-    solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
     problem: &Problem,
     timeout: f64,
     delay_cost_type: DelayCostType,
     debug_out: impl Fn(DebugInfo),
     output_stats: impl FnMut(String, serde_json::Value),
 ) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
-    solve_debug_with_mode(
+    solve_native_debug_with_mode(
         mk_env,
-        solver,
         problem,
         timeout,
         delay_cost_type,
+        SatObjectiveEncoding::Scpb,
+        SatDddSettings::default(),
         SatBoundMode::AddClauses,
         SatPrecEncoding::Plain,
         SatSearchMode::UbSearch,
@@ -318,12 +1226,40 @@ pub fn solve_debug<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
     )
 }
 
-pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static>(
+pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug>(
     mk_env: impl Fn() -> grb::Env + Send + 'static,
-    mut solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
+    _solver: impl SatInstance<L> + SatSolverWithCore<Lit = L> + std::fmt::Debug,
     problem: &Problem,
     timeout: f64,
     delay_cost_type: DelayCostType,
+    mode: SatBoundMode,
+    prec: SatPrecEncoding,
+    search: SatSearchMode,
+    debug_out: impl Fn(DebugInfo),
+    output_stats: impl FnMut(String, serde_json::Value),
+) -> Result<(Vec<Vec<i32>>, SolveStats), SolverError> {
+    solve_native_debug_with_mode(
+        mk_env,
+        problem,
+        timeout,
+        delay_cost_type,
+        SatObjectiveEncoding::Scpb,
+        SatDddSettings::default(),
+        mode,
+        prec,
+        search,
+        debug_out,
+        output_stats,
+    )
+}
+
+fn solve_native_debug_with_mode(
+    mk_env: impl Fn() -> grb::Env + Send + 'static,
+    problem: &Problem,
+    timeout: f64,
+    delay_cost_type: DelayCostType,
+    encoding: SatObjectiveEncoding,
+    settings: SatDddSettings,
     mode: SatBoundMode,
     prec: SatPrecEncoding,
     search: SatSearchMode,
@@ -340,14 +1276,18 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
     let start_time: Instant = Instant::now();
     let mut solver_time = std::time::Duration::ZERO;
     let mut stats = SolveStats::default();
+    let mut solver = NativeSolver::new();
 
     let mut visits: TiVec<VisitId, (usize, usize)> = TiVec::new();
     let mut train_visit_ids: Vec<Vec<VisitId>> = vec![Vec::new(); problem.trains.len()];
     let mut resource_visits: Vec<Vec<VisitId>> = Vec::new();
-    let mut occupations: TiVec<VisitId, Occ<_>> = TiVec::new();
+    let mut occupations: TiVec<VisitId, Occ<NativeLit>> = TiVec::new();
     let mut touched_intervals = Vec::new();
     let mut conflicts: HashMap<usize, Vec<usize>> = HashMap::new();
-    let mut new_time_points: Vec<(VisitId, Bool<L>, i32)> = Vec::new();
+    let mut new_time_points: Vec<(VisitId, Bool<NativeLit>, i32)> = Vec::new();
+    let effective_earliest = settings
+        .use_precedence_graph
+        .then(|| compute_effective_earliest(problem));
 
     let mut iteration_types: BTreeMap<IterationType, usize> = BTreeMap::new();
 
@@ -365,11 +1305,15 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
         for (visit_idx, visit) in train.visits.iter().enumerate() {
             let visit_id: VisitId = visits.push_and_get_key((train_idx, visit_idx));
             train_visit_ids[train_idx].push(visit_id);
+            let earliest = effective_earliest
+                .as_ref()
+                .map(|bounds| bounds[train_idx][visit_idx])
+                .unwrap_or(visit.earliest);
 
             occupations.push(Occ {
                 cost: vec![true.into()],
                 cost_tree: CostTree::new(),
-                delays: vec![(true.into(), visit.earliest), (false.into(), i32::MAX)],
+                delays: vec![(true.into(), earliest), (false.into(), i32::MAX)],
                 incumbent_idx: 0,
             });
             n_timepoints += 1;
@@ -380,76 +1324,84 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
 
             resource_visits[visit.resource_id].push(visit_id);
             touched_intervals.push(visit_id);
-            new_time_points.push((visit_id, true.into(), visit.earliest));
+            new_time_points.push((visit_id, true.into(), earliest));
         }
     }
 
-    // Search state.
     let mut best_sol: Option<(i32, Vec<Vec<i32>>)> = None;
     let mut lower_bound: i32 = 0;
-    // Upper bound on optimal cost (exclusive). When None, no bound yet.
     let mut upper_bound: Option<i32> = None;
-
-    // NSC Encoder state (incremental weighted PB over objective literals)
-    let mut nsc_enc: NscEncoder<L> = NscEncoder::new();
-    let mut nsc_current_max_k = 0usize;
-    // Objective terms (lit, weight). Kept so NSC can be rebuilt when UB requires a larger K.
-    let mut nsc_terms: Vec<(Bool<L>, usize)> = Vec::new();
-    // For Continuous objective we keep the same fixed-K decision-query rhythm as before:
-    // once a K is selected, refine conflicts until that query becomes SAT-feasible or UNSAT.
     let use_cont_fixed_query = matches!(delay_cost_type, DelayCostType::Continuous);
     let mut cont_active_query_bound: Option<i32> = None;
 
-    // Rows already added for interval-graph resource conflict encoding.
-    let mut added_resource_clique_rows: HashSet<ResourceCliqueRowKey> = HashSet::new();
-    // Rows already added for SCL fixed-precedence encoding: (visit_id, time).
-    let mut scl_fixed_prec_rows: HashSet<(VisitId, i32)> = HashSet::new();
+    let mut scpb_terms: Vec<(NativeLit, usize)> = Vec::new();
+    let mut scpb_total_weight = 0usize;
+    let mut scpb_addclauses_bounds: HashMap<usize, usize> = HashMap::new();
+    let mut scpb_assumption_bounds: HashMap<usize, (usize, Bool<NativeLit>)> = HashMap::new();
+    let mut budget_gte = GeneralizedTotalizer::default();
+    let mut last_added_bound: Option<usize> = None;
+    let mut bit_totalizer = BitTotalizerObjective::default();
 
-    // Optional: seed fixed-precedence (travel-time) constraints from the earliest time points.
-    const SEED_SCL_FROM_EARLIEST: bool = true;
-    if prec == SatPrecEncoding::Scl && SEED_SCL_FROM_EARLIEST {
+    let mut added_resource_clique_rows: HashSet<ResourceCliqueRowKey> = HashSet::new();
+    let mut fixed_prec_rows: HashSet<(VisitId, i32)> = HashSet::new();
+
+    const SEED_PRECEDENCE_FROM_EARLIEST: bool = true;
+    if SEED_PRECEDENCE_FROM_EARLIEST {
         for visit_id in visits.keys() {
             let (train_idx, visit_idx) = visits[visit_id];
             if visit_idx + 1 >= problem.trains[train_idx].visits.len() {
                 continue;
             }
             let (in_var, in_t) = occupations[visit_id].delays[0];
-            add_fixed_precedence_scl(
-                &mut solver,
-                problem,
-                &visits,
-                &mut occupations,
-                &mut new_time_points,
-                &mut scl_fixed_prec_rows,
-                visit_id,
-                in_var,
-                in_t,
-            );
+            if settings.use_precedence_graph {
+                propagate_precedence(
+                    &mut solver,
+                    problem,
+                    &visits,
+                    &mut occupations,
+                    &mut new_time_points,
+                    &mut fixed_prec_rows,
+                    visit_id,
+                    in_var,
+                    in_t,
+                    prec,
+                );
+            } else if prec == SatPrecEncoding::Scl {
+                let _ = add_fixed_precedence_row(
+                    &mut solver,
+                    problem,
+                    &visits,
+                    &mut occupations,
+                    &mut new_time_points,
+                    &mut fixed_prec_rows,
+                    visit_id,
+                    in_var,
+                    in_t,
+                    prec,
+                );
+            }
         }
     }
 
-    // Heuristic thread: produces feasible UB solutions (cost, solution).
-    const USE_HEURISTIC: bool = true;
-    // Benchmark toggle: when false, keep heuristic UB updates but do NOT inject
-    // heuristic solution timepoints into the SAT encoding.
-    const USE_HEURISTIC_TIMEPOINT_INJECTION: bool = false;
-    let heur_thread = USE_HEURISTIC.then(|| {
-        let (sol_in_tx, sol_in_rx) = std::sync::mpsc::channel();
-        let (sol_out_tx, sol_out_rx) = std::sync::mpsc::channel();
-        let problem = problem.clone();
-        heuristic::spawn_heuristic_thread(mk_env, sol_in_rx, problem, delay_cost_type, sol_out_tx);
-        (sol_in_tx, sol_out_rx)
-    });
-    let mut heur_active = USE_HEURISTIC;
+    const USE_INITIAL_HEURISTIC_UB_ONLY: bool = true;
+    if USE_INITIAL_HEURISTIC_UB_ONLY {
+        if let Some((ub_cost, ub_sol)) =
+            compute_initial_heuristic_upper_bound(&mk_env, problem, delay_cost_type, &occupations)?
+        {
+            println!("SAT initial heuristic UB={}", ub_cost);
+            best_sol = Some((ub_cost, ub_sol));
+            if search == SatSearchMode::UbSearch {
+                upper_bound = Some(ub_cost - 1);
+            }
+        }
+    }
 
     let mut iteration: usize = 1;
     let mut is_sat: bool = true;
-
-    // Preallocate to avoid reallocation inside the loop
-    let mut invalid_clause: Vec<Bool<L>> = Vec::new();
+    let mut invalid_clause: Vec<Bool<NativeLit>> = Vec::new();
 
     loop {
-        let mut bound_assumption: Option<Bool<L>> = None;
+        let mut bound_assumptions: Vec<Bool<NativeLit>> = Vec::new();
         let mut bound_used: Option<i32> = None;
         if start_time.elapsed().as_secs_f64() > timeout {
             let ub = best_sol.as_ref().map(|(c, _)| *c).unwrap_or(i32::MAX);
@@ -471,46 +1423,9 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
         }
 
         if is_sat {
-            // Send current incumbent to heuristic and read improved UBs.
-            if heur_active {
-                if let Some((sol_tx, sol_rx)) = heur_thread.as_ref() {
-                    let sol = extract_solution(problem, &occupations);
-                    let _ = sol_tx.send(sol);
-
-                    while let Ok((ub_cost, ub_sol)) = sol_rx.try_recv() {
-                        if best_sol.as_ref().map(|(c, _)| ub_cost < *c).unwrap_or(true) {
-                            best_sol = Some((ub_cost, ub_sol.clone()));
-                        }
-
-                        if search == SatSearchMode::UbSearch {
-                            // Use heuristic solution as a starting UB (search for strictly better).
-                            let candidate_ub = ub_cost - 1;
-                            upper_bound = Some(
-                                upper_bound
-                                    .map(|b| b.min(candidate_ub))
-                                    .unwrap_or(candidate_ub),
-                            );
-                        }
-
-                        if USE_HEURISTIC_TIMEPOINT_INJECTION {
-                            // Optional: make sure heuristic time points exist in encoding.
-                            inject_solution_timepoints_sat(
-                                &mut solver,
-                                problem,
-                                &train_visit_ids,
-                                &mut occupations,
-                                &mut new_time_points,
-                                &ub_sol,
-                            );
-                        }
-                    }
-                }
-            }
-
             let mut found_travel_time_conflict = false;
             let mut found_resource_conflict = false;
 
-            // ----- Travel time conflicts -----
             for visit_id in touched_intervals.iter().copied() {
                 let (train_idx, visit_idx) = visits[visit_id];
                 let next_visit: Option<VisitId> =
@@ -531,7 +1446,6 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                     if t1_in + visit.travel_time > t1_out {
                         found_travel_time_conflict = true;
 
-                        // Debug info
                         let mut debug_actions = Vec::new();
                         debug_actions.push(SolverAction::TravelTimeConflict(ResourceInterval {
                             train_idx,
@@ -546,42 +1460,25 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                             solution: extract_solution(problem, &occupations),
                         });
 
-                        if prec == SatPrecEncoding::Scl {
-                            let in_var = v1.delays[v1.incumbent_idx].0;
-                            let in_t = v1.incumbent_time();
-                            add_fixed_precedence_scl(
-                                &mut solver,
-                                problem,
-                                &visits,
-                                &mut occupations,
-                                &mut new_time_points,
-                                &mut scl_fixed_prec_rows,
-                                visit_id,
-                                in_var,
-                                in_t,
-                            );
-                            stats.n_travel += 1;
-                        } else {
-                            let t1_in_var = v1.delays[v1.incumbent_idx].0;
-                            let new_t = v1.incumbent_time() + visit.travel_time;
-                            let (t1_earliest_out_var, t1_is_new) =
-                                occupations[next_visit].time_point(&mut solver, new_t);
-
-                            SatInstance::add_clause(
-                                &mut solver,
-                                vec![!t1_in_var, t1_earliest_out_var],
-                            );
-                            stats.n_travel += 1;
-
-                            if t1_is_new {
-                                new_time_points.push((next_visit, t1_earliest_out_var, new_t));
-                            }
-                        }
+                        let in_var = v1.delays[v1.incumbent_idx].0;
+                        let in_t = v1.incumbent_time();
+                        let _ = add_fixed_precedence_row(
+                            &mut solver,
+                            problem,
+                            &visits,
+                            &mut occupations,
+                            &mut new_time_points,
+                            &mut fixed_prec_rows,
+                            visit_id,
+                            in_var,
+                            in_t,
+                            prec,
+                        );
+                        stats.n_travel += 1;
                     }
                 }
             }
 
-            // ----- Resource conflicts via interval-graph clique cover -----
             #[derive(Clone, Copy)]
             struct ActiveInterval {
                 visit_id: VisitId,
@@ -596,7 +1493,6 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                 touched_positions.entry(visit_id).or_default().push(idx);
             }
 
-            // Only process resource conflict groups impacted by touched visits.
             let mut relevant_resource_pairs: HashSet<(usize, usize)> = HashSet::new();
             for &visit_id in &touched_intervals {
                 let (train_idx, visit_idx) = visits[visit_id];
@@ -613,7 +1509,8 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
             }
 
             let mut retain_touched = vec![false; touched_intervals.len()];
-            let mut current_choice_lits: HashMap<(VisitId, i32, i32), Bool<L>> = HashMap::new();
+            let mut current_choice_lits: HashMap<(VisitId, i32, i32), Bool<NativeLit>> =
+                HashMap::new();
 
             for (resource_a, resource_b) in relevant_resource_pairs.into_iter() {
                 let mut group_intervals = Vec::new();
@@ -710,7 +1607,6 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                         .filter(|m| touched_set.contains(&m.visit_id))
                         .collect();
 
-                    // Refine only touched intervals: move each just past the nearest blocker end in this clique.
                     for m in &refine_members {
                         let Some(target_t) = members
                             .iter()
@@ -730,19 +1626,18 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                         if is_new {
                             new_time_points.push((m.visit_id, delay_after, target_t));
                         }
-                        if prec == SatPrecEncoding::Scl {
-                            add_fixed_precedence_scl(
-                                &mut solver,
-                                problem,
-                                &visits,
-                                &mut occupations,
-                                &mut new_time_points,
-                                &mut scl_fixed_prec_rows,
-                                m.visit_id,
-                                delay_after,
-                                target_t,
-                            );
-                        }
+                        let _ = add_fixed_precedence_row(
+                            &mut solver,
+                            problem,
+                            &visits,
+                            &mut occupations,
+                            &mut new_time_points,
+                            &mut fixed_prec_rows,
+                            m.visit_id,
+                            delay_after,
+                            target_t,
+                            prec,
+                        );
                     }
 
                     let mut clique_lits = Vec::with_capacity(members.len());
@@ -780,7 +1675,6 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
             };
             *iteration_types.entry(iterationtype).or_default() += 1;
 
-            // If there are no conflicts, current incumbent is a feasible schedule for the current discretization.
             if !(found_resource_conflict || found_travel_time_conflict) {
                 let sol = extract_solution(problem, &occupations);
                 let cost = problem.cost(&sol, delay_cost_type);
@@ -790,7 +1684,6 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                 }
 
                 if search == SatSearchMode::UbSearch {
-                    // Tighten UB to search for a strictly better solution.
                     let candidate_ub = cost - 1;
                     upper_bound = Some(
                         upper_bound
@@ -798,8 +1691,6 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                             .unwrap_or(candidate_ub),
                     );
                     if use_cont_fixed_query {
-                        // For continuous objective, finish current decision query (cost <= K)
-                        // and pick a new K only in the next objective iteration.
                         cont_active_query_bound = None;
                     }
                 }
@@ -810,7 +1701,6 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                     solution: sol,
                 });
 
-                // If we cannot improve further, we can stop.
                 if search == SatSearchMode::UbSearch {
                     if let Some(ub) = upper_bound {
                         if ub < lower_bound {
@@ -832,7 +1722,6 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                         }
                     }
                 } else if search == SatSearchMode::Invalid {
-                    // Block the current schedule (timepoint boundaries only).
                     invalid_clause.clear();
                     for occ in occupations.iter() {
                         let idx = occ.incumbent_idx;
@@ -850,73 +1739,61 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
             }
         }
 
-        // ----- Encode costs for newly-created time points -----
-        // For Continuous objective, use weighted literals directly (via CostTree) instead of
-        // unit-cost ladder expansion. This keeps PB terms compact.
-        let use_weighted_pb_direct = matches!(delay_cost_type, DelayCostType::Continuous);
-
         for (visit, new_timepoint_var, new_t) in new_time_points.drain(..) {
             n_timepoints += 1;
             let (train_idx, visit_idx) = visits[visit];
-
             let new_timepoint_cost =
                 problem.trains[train_idx].visit_delay_cost(delay_cost_type, visit_idx, new_t);
 
             if new_timepoint_cost > 0 {
-                if !use_weighted_pb_direct {
-                    // We only need ONE boolean variable to represent this decision reaching this delay.
-                    // Actually, `new_timepoint_var` ALREADY represents the decision "time >= new_t".
-                    // But our cost model incurs `new_timepoint_cost` if time >= new_t AND time < new_t_next.
-                    // For the pb formulation, we just add `new_timepoint_var` as having weight `new_timepoint_cost`?
-                    // Actually, the DDD ladder encoding says:
-                    // cost occurs if var is true. But costs stack!
-                    // If t=1 has cost 1, t=2 has cost 2, then var(t>=1) contributes 1, var(t>=2) contributes 1.
-                    // So we must figure out the *marginal* cost of this timepoint (cost at new_t - cost at previous t).
-
-                    for cost in occupations[visit].cost.len()..=new_timepoint_cost as usize {
-                        let prev_cost_var = occupations[visit].cost[cost - 1];
-                        let next_cost_var = SatInstance::new_var(&mut solver);
-                        SatInstance::add_clause(&mut solver, vec![!next_cost_var, prev_cost_var]);
-                        occupations[visit].cost.push(next_cost_var);
-
-                        nsc_terms.push((next_cost_var, 1));
-                        if nsc_current_max_k > 0 {
-                            nsc_enc.add_variable(&mut solver, next_cost_var, 1, nsc_current_max_k);
-                        }
+                match encoding {
+                    SatObjectiveEncoding::Scpb => {
+                        occupations[visit].cost_tree.add_cost(
+                            &mut solver,
+                            new_timepoint_var,
+                            new_timepoint_cost,
+                            &mut |weight, cost_var| {
+                                let lit = cost_var
+                                    .lit()
+                                    .expect("CostTree produced a non-literal SCPB term");
+                                scpb_terms.push((lit, weight));
+                                scpb_total_weight = scpb_total_weight.saturating_add(weight);
+                            },
+                        );
                     }
-
-                    SatInstance::add_clause(
-                        &mut solver,
-                        vec![
-                            !new_timepoint_var,
-                            occupations[visit].cost[new_timepoint_cost as usize],
-                        ],
-                    );
-                } else {
-                    let mut emitted_terms: Vec<(usize, Bool<L>)> = Vec::new();
-                    occupations[visit].cost_tree.add_cost(
-                        &mut solver,
-                        new_timepoint_var,
-                        new_timepoint_cost as usize,
-                        &mut |weight, cost_var| {
-                            emitted_terms.push((weight, cost_var));
-                        },
-                    );
-                    for (weight, cost_var) in emitted_terms {
-                        nsc_terms.push((cost_var, weight));
-                        if nsc_current_max_k > 0 {
-                            nsc_enc.add_variable(&mut solver, cost_var, weight, nsc_current_max_k);
-                        }
+                    SatObjectiveEncoding::IncrementalTotalizer => {
+                        occupations[visit].cost_tree.add_cost(
+                            &mut solver,
+                            new_timepoint_var,
+                            new_timepoint_cost,
+                            &mut |weight, cost_var| {
+                                let lit = cost_var
+                                    .lit()
+                                    .expect("CostTree produced a non-literal objective term");
+                                budget_gte.extend([(lit, weight)]);
+                            },
+                        );
+                    }
+                    SatObjectiveEncoding::BitTotalizer => {
+                        occupations[visit].cost_tree.add_cost(
+                            &mut solver,
+                            new_timepoint_var,
+                            new_timepoint_cost,
+                            &mut |weight, cost_var| {
+                                let lit = cost_var
+                                    .lit()
+                                    .expect("CostTree produced a non-literal bit-totalizer term");
+                                bit_totalizer.add_term(lit, weight);
+                            },
+                        );
                     }
                 }
             }
         }
 
-        // ----- Enforce budget UB (if known) -----
         if search == SatSearchMode::UbSearch {
             if let Some(ub) = upper_bound {
                 if ub < lower_bound {
-                    // Search space exhausted.
                     if let Some((c, s)) = best_sol.clone() {
                         stats.n_unsat += 1;
                         stats.satsolver = format!("{:?}", solver);
@@ -937,9 +1814,6 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                 }
 
                 let target_ub = if use_cont_fixed_query {
-                    // Continuous objective: decision SAT with a fixed K for the current
-                    // refinement cycle. We only pick a new K when the current query is decided
-                    // (SAT-feasible or UNSAT).
                     let selected = cont_active_query_bound.unwrap_or_else(|| {
                         let span = ub - lower_bound;
                         lower_bound + (span / 2)
@@ -953,55 +1827,159 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                         SatBoundMode::Assumptions => (lower_bound + ub) / 2,
                     }
                 };
-
                 let ub_usize = target_ub as usize;
-                let required_k = ub_usize.saturating_add(1);
-
-                if required_k > nsc_current_max_k {
-                    rebuild_nsc_encoder(&mut solver, &mut nsc_enc, &nsc_terms, required_k);
-                    nsc_current_max_k = required_k;
-                }
-
-                // Enforce weighted objective sum <= target_ub.
-                // This means the encoded sum cannot reach target_ub + 1.
-                if let Some(reached_var) = nsc_enc.has_sum_reached(required_k) {
-                    let bound_lit = !reached_var;
-                    bound_used = Some(target_ub);
-                    match mode {
-                        SatBoundMode::AddClauses => {
-                            SatInstance::add_clause(&mut solver, vec![bound_lit]);
-                        }
-                        SatBoundMode::Assumptions => {
-                            bound_assumption = Some(bound_lit);
+                match encoding {
+                    SatObjectiveEncoding::Scpb => {
+                        if ub_usize < scpb_total_weight {
+                            bound_used = Some(target_ub);
+                            match mode {
+                                SatBoundMode::AddClauses => {
+                                    let encoded_terms =
+                                        scpb_addclauses_bounds.get(&ub_usize).copied().unwrap_or(0);
+                                    if encoded_terms < scpb_terms.len() {
+                                        encode_scpb_leq(&mut solver, &scpb_terms, ub_usize, None);
+                                        scpb_addclauses_bounds.insert(ub_usize, scpb_terms.len());
+                                    }
+                                }
+                                SatBoundMode::Assumptions => {
+                                    let selector = match scpb_assumption_bounds.get(&ub_usize) {
+                                        Some((encoded_terms, selector))
+                                            if *encoded_terms == scpb_terms.len() =>
+                                        {
+                                            *selector
+                                        }
+                                        _ => {
+                                            let selector = SatInstance::new_var(&mut solver);
+                                            encode_scpb_leq(
+                                                &mut solver,
+                                                &scpb_terms,
+                                                ub_usize,
+                                                Some(selector),
+                                            );
+                                            scpb_assumption_bounds
+                                                .insert(ub_usize, (scpb_terms.len(), selector));
+                                            selector
+                                        }
+                                    };
+                                    bound_assumptions.push(selector);
+                                }
+                            }
                         }
                     }
-                } else {
-                    // No literal means the weighted sum cannot reach (target_ub + 1).
-                    // In this case, the UB constraint is tautological and must NOT be used
-                    // to raise LB on UNSAT.
-                    bound_used = None;
+                    SatObjectiveEncoding::BitTotalizer => {
+                        if ub_usize < bit_totalizer.total_weight {
+                            bound_used = Some(target_ub);
+                            let term_count = bit_totalizer.term_count();
+                            match mode {
+                                SatBoundMode::AddClauses => {
+                                    let encoded_terms = bit_totalizer
+                                        .addclauses_bounds
+                                        .get(&ub_usize)
+                                        .copied()
+                                        .unwrap_or(0);
+                                    if encoded_terms < term_count {
+                                        bit_totalizer.encode_leq(&mut solver, ub_usize, None);
+                                        bit_totalizer
+                                            .addclauses_bounds
+                                            .insert(ub_usize, term_count);
+                                    }
+                                }
+                                SatBoundMode::Assumptions => {
+                                    let cached =
+                                        bit_totalizer.assumption_bounds.get(&ub_usize).copied();
+                                    let selector = match cached {
+                                        Some((encoded_terms, selector))
+                                            if encoded_terms == term_count =>
+                                        {
+                                            selector
+                                        }
+                                        _ => {
+                                            let selector = SatInstance::new_var(&mut solver);
+                                            bit_totalizer.encode_leq(
+                                                &mut solver,
+                                                ub_usize,
+                                                Some(selector),
+                                            );
+                                            bit_totalizer
+                                                .assumption_bounds
+                                                .insert(ub_usize, (term_count, selector));
+                                            selector
+                                        }
+                                    };
+                                    bound_assumptions.push(selector);
+                                }
+                            }
+                        }
+                    }
+                    SatObjectiveEncoding::IncrementalTotalizer => {
+                        if ub_usize < budget_gte.weight_sum() {
+                            let bound_lits: Vec<Bool<NativeLit>> = {
+                                let (inner, next_var) = (&mut solver.inner, &mut solver.next_var);
+                                let mut collector = NativeClauseCollector { inner };
+                                let mut var_manager = NativeVarManager { next_var };
+                                budget_gte
+                                    .encode_ub_change(
+                                        0..=ub_usize,
+                                        &mut collector,
+                                        &mut var_manager,
+                                    )
+                                    .map_err(|_| SolverError::OutOfMemory)?;
+
+                                budget_gte
+                                    .enforce_ub(ub_usize)
+                                    .unwrap_or_else(|err| {
+                                        panic!(
+                                            "failed to enforce GeneralizedTotalizer upper bound {}: {:?}",
+                                            ub_usize, err
+                                        )
+                                    })
+                                    .into_iter()
+                                    .map(Bool::from_lit)
+                                    .collect()
+                            };
+
+                            if !bound_lits.is_empty() {
+                                bound_used = Some(target_ub);
+                                match mode {
+                                    SatBoundMode::AddClauses => {
+                                        if last_added_bound != Some(ub_usize) {
+                                            for lit in bound_lits {
+                                                SatInstance::add_clause(&mut solver, vec![lit]);
+                                            }
+                                            last_added_bound = Some(ub_usize);
+                                        }
+                                    }
+                                    SatBoundMode::Assumptions => {
+                                        bound_assumptions.extend(bound_lits);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        // ----- Solve SAT -----
         *iteration_types.entry(IterationType::Objective).or_default() += 1;
 
         let solver_debug = format!("{:?}", solver);
+        let remaining_timeout = (timeout - start_time.elapsed().as_secs_f64()).max(0.0);
+        solver.set_solve_timeout(Some(Duration::from_secs_f64(remaining_timeout)));
+        println!(
+            "SAT iteration {} LB={} UB={:?} query_bound={:?}",
+            iteration, lower_bound, upper_bound, bound_used
+        );
         let solve_start = Instant::now();
-        let result =
-            SatSolverWithCore::solve_with_assumptions(&mut solver, bound_assumption.into_iter());
+        let result = solver.solve_with_assumptions_owned(bound_assumptions.into_iter());
         solver_time += solve_start.elapsed();
 
         match result {
-            satcoder::SatResultWithCore::Sat(model) => {
+            NativeSolveResult::Sat(model) => {
                 is_sat = true;
                 stats.n_sat += 1;
 
-                // Update incumbents from the model and mark touched intervals.
                 let mut touched_seen = vec![false; occupations.len()];
                 if !touched_intervals.is_empty() {
-                    // Keep first occurrence order and drop duplicates accumulated from previous iterations.
                     let mut write = 0usize;
                     for read in 0..touched_intervals.len() {
                         let vid = touched_intervals[read];
@@ -1045,7 +2023,7 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                     }
                 }
             }
-            satcoder::SatResultWithCore::Unsat(_core) => {
+            NativeSolveResult::Unsat(_core) => {
                 is_sat = false;
                 stats.n_unsat += 1;
                 if search == SatSearchMode::Invalid {
@@ -1070,8 +2048,6 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
                 if let Some(bound) = bound_used {
                     lower_bound = bound + 1;
                     if use_cont_fixed_query {
-                        // Current decision query (cost <= K) proved UNSAT.
-                        // Move to the next K in the following objective iteration.
                         cont_active_query_bound = None;
                     }
                     if let (Some((c, s)), Some(ub)) = (best_sol.clone(), upper_bound) {
@@ -1098,86 +2074,30 @@ pub fn solve_debug_with_mode<L: satcoder::Lit + Copy + std::fmt::Debug + 'static
 
                 return Err(SolverError::NoSolution);
             }
+            NativeSolveResult::Interrupted => {
+                let ub = best_sol.as_ref().map(|(c, _)| *c).unwrap_or(i32::MAX);
+                let lb = lower_bound;
+                println!("TIMEOUT LB={} UB={}", lb, ub);
+                do_output_stats(
+                    &mut output_stats,
+                    iteration,
+                    &iteration_types,
+                    &stats,
+                    &occupations,
+                    start_time,
+                    solver_time,
+                    lb,
+                    ub,
+                );
+                return Err(SolverError::Timeout);
+            }
         }
 
         iteration += 1;
     }
 }
 
-fn current_interval_choice_lit<L: satcoder::Lit>(
-    solver: &mut impl SatInstance<L>,
-    occupations: &TiVec<VisitId, Occ<L>>,
-    cache: &mut HashMap<(VisitId, i32, i32), Bool<L>>,
-    visit_id: VisitId,
-) -> Bool<L> {
-    let occ = &occupations[visit_id];
-    let idx = occ.incumbent_idx;
-    let start_t = occ.delays[idx].1;
-    let next_t = occ.delays[idx + 1].1;
-
-    if let Some(&lit) = cache.get(&(visit_id, start_t, next_t)) {
-        return lit;
-    }
-
-    let in_lit = occ.delays[idx].0;
-    let next_lit = occ.delays[idx + 1].0;
-    let chosen_lit = solver.new_var();
-
-    // chosen_lit <-> (in_lit && !next_lit)
-    solver.add_clause(vec![!chosen_lit, in_lit]);
-    solver.add_clause(vec![!chosen_lit, !next_lit]);
-    solver.add_clause(vec![chosen_lit, !in_lit, next_lit]);
-
-    cache.insert((visit_id, start_t, next_t), chosen_lit);
-    chosen_lit
-}
-
-fn add_sequential_amo<L: satcoder::Lit>(solver: &mut impl SatInstance<L>, lits: &[Bool<L>]) {
-    match lits.len() {
-        0 | 1 => return,
-        2 => {
-            solver.add_clause(vec![!lits[0], !lits[1]]);
-            return;
-        }
-        _ => {}
-    }
-
-    let mut prefix = Vec::with_capacity(lits.len() - 1);
-    for _ in 0..(lits.len() - 1) {
-        prefix.push(solver.new_var());
-    }
-
-    solver.add_clause(vec![!lits[0], prefix[0]]);
-    for i in 1..(lits.len() - 1) {
-        solver.add_clause(vec![!lits[i], prefix[i]]);
-        solver.add_clause(vec![!prefix[i - 1], prefix[i]]);
-        solver.add_clause(vec![!lits[i], !prefix[i - 1]]);
-    }
-    solver.add_clause(vec![!lits[lits.len() - 1], !prefix[prefix.len() - 1]]);
-}
-
-fn add_pairwise_amo<L: satcoder::Lit>(solver: &mut impl SatInstance<L>, lits: &[Bool<L>]) {
-    for i in 0..lits.len() {
-        for j in (i + 1)..lits.len() {
-            solver.add_clause(vec![!lits[i], !lits[j]]);
-        }
-    }
-}
-
-fn add_hybrid_amo<L: satcoder::Lit>(solver: &mut impl SatInstance<L>, lits: &[Bool<L>]) {
-    const PAIRWISE_AMO_MAX_SIZE: usize = 5;
-    if lits.len() <= PAIRWISE_AMO_MAX_SIZE {
-        add_pairwise_amo(solver, lits);
-    } else {
-        add_sequential_amo(solver, lits);
-    }
-}
-
-/// Add the SCL-compressed fixed-precedence constraint for a single time point.
-///
-/// Given an in-visit `visit_id` on train i at time t with ladder literal `in_var` (= "time >= t"),
-/// we enforce that the next visit on the same train must satisfy time >= t + travel_time.
-fn add_fixed_precedence_scl<L: satcoder::Lit>(
+fn add_fixed_precedence_row<L: satcoder::Lit>(
     solver: &mut impl SatInstance<L>,
     problem: &Problem,
     visits: &TiVec<VisitId, (usize, usize)>,
@@ -1187,14 +2107,15 @@ fn add_fixed_precedence_scl<L: satcoder::Lit>(
     visit_id: VisitId,
     in_var: Bool<L>,
     in_t: i32,
-) {
+    prec: SatPrecEncoding,
+) -> Option<(VisitId, Bool<L>, i32)> {
     if !added.insert((visit_id, in_t)) {
-        return;
+        return None;
     }
 
     let (train_idx, visit_idx) = visits[visit_id];
     if visit_idx + 1 >= problem.trains[train_idx].visits.len() {
-        return;
+        return None;
     }
 
     let travel = problem.trains[train_idx].visits[visit_idx].travel_time;
@@ -1203,25 +2124,65 @@ fn add_fixed_precedence_scl<L: satcoder::Lit>(
 
     let earliest_next = occupations[next_visit].delays[0].1;
     if req_t <= earliest_next {
-        return;
+        return Some((next_visit, true.into(), earliest_next));
     }
 
     let (req_var, is_new) = occupations[next_visit].time_point(solver, req_t);
-    // For small cliques, use pairwise clauses; otherwise use SCL (single implication).
-    const SCL_PAIRWISE_THRESHOLD: usize = 5;
-    let idx = occupations[next_visit]
-        .delays
-        .partition_point(|(_, t0)| *t0 < req_t);
-    if idx <= SCL_PAIRWISE_THRESHOLD {
-        for i in 0..idx {
-            let lit_i = occupations[next_visit].delays[i].0;
-            let lit_next = occupations[next_visit].delays[i + 1].0;
-            solver.add_clause(vec![!in_var, !lit_i, lit_next]);
+    match prec {
+        SatPrecEncoding::Plain => {
+            solver.add_clause(vec![!in_var, req_var]);
         }
-    } else {
-        solver.add_clause(vec![!in_var, req_var]);
+        SatPrecEncoding::Scl => {
+            const SCL_PAIRWISE_THRESHOLD: usize = 5;
+            let idx = occupations[next_visit]
+                .delays
+                .partition_point(|(_, t0)| *t0 < req_t);
+            if idx <= SCL_PAIRWISE_THRESHOLD {
+                for i in 0..idx {
+                    let lit_i = occupations[next_visit].delays[i].0;
+                    let lit_next = occupations[next_visit].delays[i + 1].0;
+                    solver.add_clause(vec![!in_var, !lit_i, lit_next]);
+                }
+            } else {
+                solver.add_clause(vec![!in_var, req_var]);
+            }
+        }
     }
     if is_new {
         new_time_points.push((next_visit, req_var, req_t));
+    }
+
+    Some((next_visit, req_var, req_t))
+}
+
+fn propagate_precedence<L: satcoder::Lit>(
+    solver: &mut impl SatInstance<L>,
+    problem: &Problem,
+    visits: &TiVec<VisitId, (usize, usize)>,
+    occupations: &mut TiVec<VisitId, Occ<L>>,
+    new_time_points: &mut Vec<(VisitId, Bool<L>, i32)>,
+    added: &mut HashSet<(VisitId, i32)>,
+    start_visit: VisitId,
+    start_var: Bool<L>,
+    start_t: i32,
+    prec: SatPrecEncoding,
+) {
+    let mut queue = VecDeque::from([(start_visit, start_var, start_t)]);
+
+    while let Some((visit_id, in_var, in_t)) = queue.pop_front() {
+        if let Some(next) = add_fixed_precedence_row(
+            solver,
+            problem,
+            visits,
+            occupations,
+            new_time_points,
+            added,
+            visit_id,
+            in_var,
+            in_t,
+            prec,
+        ) {
+            queue.push_back(next);
+        }
     }
 }

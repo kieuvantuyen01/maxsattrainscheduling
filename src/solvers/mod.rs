@@ -12,6 +12,7 @@ pub mod heuristic;
 pub mod maxsatddd_ladder_abstract;
 pub mod milp_ti;
 pub mod ddd;
+pub mod value_trace;
 // pub mod cutting;
 
 

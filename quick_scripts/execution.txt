@@ -7,17 +7,17 @@
 
 ./target/release/ddd \
   -s sat_ddd_scl \
-  --satddd-objective-encoding nsc \
+  --satddd-objective-encoding scpb \
+  --satddd-use-precedence-graph false \
   --txt-instances \
   --objective infsteps180 \
-  --json-output results_sat_scl_infsteps180_nsc.json
+  --json-output results_sat_scl_infsteps180_scpb_init_heuristic_120s.json
 
 ./target/release/ddd \
-  -s maxsat_ddd_ladder_scl \
+  -s maxsat_ddd_ladder \
   --txt-instances \
-  --objective cont \
-  --maxsatddd-ladder-scl-use-precedence-graph true \
-  --json-output results_maxsat_scl_prec_graph_120s.json
+  --objective finsteps123 \
+  --json-output results_maxsat_finsteps123_120s.json
 
 ./target/release/ddd \
   -s sat_ddd_scl_totalizer \
@@ -26,10 +26,51 @@
   --satddd-use-precedence-graph true \
   --json-output results_sat_scl_finsteps123_totalizer_prec_graph_120s.json
 
+./target/release/ddd \
+  -s sat_ddd_scl \
+  --satddd-objective-encoding bit_totalizer \
+  --txt-instances \
+  --objective finsteps123 \
+  --satddd-use-precedence-graph true \
+  --json-output results_sat_scl_cost_fix.json
+
+./target/release/ddd \
+  -s sat_ddd_scl \
+  --satddd-objective-encoding totalizer \
+  --txt-instances \
+  --objective infsteps180 \
+  --satddd-use-precedence-graph false \
+  --json-output results_sat_scl_totalizer_infsteps180_cost_fix.json
+
+./target/release/ddd \
+  -s sat_ddd_scl_totalizer \
+  --satddd-use-interval-graph-conflicts false \
+  --objective infsteps180 \
+  --txt-instances
+
+  BIN=./target/release/ddd \
+SOLVER=sat_ddd_scl_totalizer \
+OBJECTIVE=cont \
+SATDDD_OBJECTIVE_ENCODING=scpb \
+SATDDD_USE_PRECEDENCE_GRAPH=false \
+JSON_OUT=results_sat_scl_cont_scpb_init_heuristic_120s.json \
+INSTANCE_TIMEOUT_SECS=150 \
+RAM_LIMIT_KB=15000000 \
+bash quick_scripts/run_all_txt_instances_limited.sh
+
 BIN=./target/release/ddd \
 SOLVER=sat_ddd_scl_totalizer \
 OBJECTIVE=cont \
-JSON_OUT=results_sat_scl_cont_totalizer3_600s_increase_ex_timeout.json \
-INSTANCE_TIMEOUT_SECS=150s \
+SATDDD_OBJECTIVE_ENCODING=totalizer \
+SATDDD_USE_PRECEDENCE_GRAPH=true \
+JSON_OUT=results_sat_scl_cont_totalizer_prec.json \
+INSTANCE_TIMEOUT_SECS=150 \
 RAM_LIMIT_KB=15000000 \
 bash quick_scripts/run_all_txt_instances_limited.sh
+
+./target/release/ddd \
+  -s maxsat_ddd_ladder_scl \
+  --txt-instances \
+  --objective finsteps123 \
+  --maxsatddd-ladder-scl-use-precedence-graph true \
+  --json-output results_maxsat_scl_finsteps123.json
