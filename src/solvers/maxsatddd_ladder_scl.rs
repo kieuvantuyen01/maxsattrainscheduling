@@ -1004,6 +1004,29 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug + 'st
                         // monotone delay literals capturing BOTH start and end.
                         let tau_plus_1 = members.iter().map(|m| m.end).min().unwrap();
 
+                        let mut active_lits = Vec::with_capacity(members.len());
+                        for m in &members {
+                            let lit = build_active_lit(
+                                &mut solver,
+                                problem,
+                                &visits,
+                                &mut occupations,
+                                &mut new_time_points,
+                                &mut fixed_prec_rows,
+                                &mut active_lit_cache,
+                                settings.use_scl_fixed_precedence,
+<<<<<<< HEAD
+                                m.visit_id,
+                                tau_plus_1,
+                            );
+                            active_lits.push(lit);
+                        }
+
+                        add_hybrid_amo(&mut solver, &active_lits);
+=======
+                            );
+                        }
+
                         // Build lits and split by train in a single pass for BIS encoding.
                         // The clique is bipartite when exactly 2 trains are involved:
                         //   side A = intervals of train_a, side B = intervals of train_b.
@@ -1021,17 +1044,11 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug + 'st
                             let mut side_b: Vec<Bool<L>> = Vec::new();
 
                             for m in &members {
-                                let lit = build_active_lit(
+                                let lit = current_interval_choice_lit(
                                     &mut solver,
-                                    problem,
-                                    &visits,
-                                    &mut occupations,
-                                    &mut new_time_points,
-                                    &mut fixed_prec_rows,
-                                    &mut active_lit_cache,
-                                    settings.use_scl_fixed_precedence,
+                                    &occupations,
+                                    &mut current_choice_lits,
                                     m.visit_id,
-                                    tau_plus_1,
                                 );
                                 if m.train_idx == train_a {
                                     side_a.push(lit);
@@ -1046,22 +1063,18 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug + 'st
                             // (Correct but uses more clauses; rare in practice.)
                             let mut all_lits: Vec<Bool<L>> = Vec::with_capacity(members.len());
                             for m in &members {
-                                let lit = build_active_lit(
+                                let lit = current_interval_choice_lit(
                                     &mut solver,
-                                    problem,
-                                    &visits,
-                                    &mut occupations,
-                                    &mut new_time_points,
-                                    &mut fixed_prec_rows,
-                                    &mut active_lit_cache,
-                                    settings.use_scl_fixed_precedence,
+                                    &occupations,
+                                    &mut current_choice_lits,
                                     m.visit_id,
-                                    tau_plus_1,
                                 );
                                 all_lits.push(lit);
                             }
                             add_hybrid_amo(&mut solver, &all_lits);
                         }
+                        n_conflict_constraints += 1;
+>>>>>>> 4d74b905 (update bis encoding)
                     }
                     n_conflict_constraints += 1;
                     cliques_processed += 1;
