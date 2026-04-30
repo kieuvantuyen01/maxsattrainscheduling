@@ -1,4 +1,4 @@
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use log::info;
 use typed_index_collections::TiVec;
@@ -912,6 +912,9 @@ pub fn solve<S: MaxSatSolver>(
         #[allow(clippy::type_complexity)]
         let mut incompat: HashMap<(usize, usize, usize), Vec<(usize, usize, usize)>> =
             Default::default();
+        // Companion set for O(1) duplicate-detection when recording incompat entries.
+        let mut incompat_set: HashMap<(usize, usize, usize), HashSet<(usize, usize, usize)>> =
+            Default::default();
         let mut n_travel_time_constraints = 0;
         let mut n_conflict_constraints = 0;
 
@@ -948,7 +951,20 @@ pub fn solve<S: MaxSatSolver>(
             }
         }
 
-        // Conflict constraints
+        // Conflict constraints — clique covering via sweep line (Block Decomposition).
+        //
+        // For each pair of conflicting visits (t1,v1) and (t2,v2) sharing a resource,
+        // we merge their time points and sweep over every "event" time tau. At each tau,
+        // all intervals from either visit that are active at tau form a clique in the
+        // conflict graph. Adding one AMO per distinct clique covers every incompatible
+        // pair that "overlaps at tau", replacing the O(|P1|×|P2|) pairwise encoding
+        // with O((|P1|+|P2|)) AMOs (clique covering, O(n³)→O(n²) for the paper's
+        // full interval graph). The auxiliary-variable Block Decomposition (O(n²lgn))
+        // is tracked as a TODO below.
+        //
+        // A HashSet `added_cliques` deduplicates identical AMOs across different taus.
+        let mut added_cliques: HashSet<Vec<(usize, usize, usize)>> = HashSet::new();
+
         for (_res, vs) in resource_usage.iter() {
             for (t1, v1) in vs.iter() {
                 for (t2, v2) in vs.iter() {
@@ -962,29 +978,118 @@ pub fn solve<S: MaxSatSolver>(
 
                     let travel1 = problem.trains[*t1].visits[*v1].travel_time;
                     let travel2 = problem.trains[*t2].visits[*v2].travel_time;
-                    for (t1_idx, (t1_start, t1_end)) in intervals[*t1][*v1].iter().enumerate() {
-                        for (t2_idx, (t2_start, t2_end)) in intervals[*t2][*v2].iter().enumerate() {
-                            let test1 = *t2_start + travel2 >= *t1_end;
-                            let test2 = *t1_start + travel1 >= *t2_end;
-                            let incompatible = test1 && test2;
-                            if incompatible {
-                                // println!("incomp t{}v{}x{}-{},dt{}  t{}v{}x{}-{},dt{}", t1, v1, t1_start, t1_end, travel1, t2, v2, t2_start, t2_end, travel2);
-                                let i1 = t_vars[*t1][*v1][t1_idx];
-                                let i2 = t_vars[*t2][*v2][t2_idx];
 
-                                incompat
-                                    .entry((*t1, *v1, t1_idx))
-                                    .or_default()
-                                    .push((*t2, *v2, t2_idx));
-                                incompat
-                                    .entry((*t2, *v2, t2_idx))
-                                    .or_default()
-                                    .push((*t1, *v1, t1_idx));
+                    // Collect all candidate tau values: every start time of either visit.
+                    // These are the left endpoints of occupation intervals.
+                    let mut taus: Vec<i32> = intervals[*t1][*v1]
+                        .iter()
+                        .map(|(s, _)| *s)
+                        .chain(intervals[*t2][*v2].iter().map(|(s, _)| *s))
+                        .collect();
+                    taus.sort_unstable();
+                    taus.dedup();
 
-                                solver.at_most_one(&[i1, i2]);
-                                n_conflict_constraints += 1;
+                    for tau in &taus {
+                        let tau = *tau;
+
+                        // Members from visit 1 active at tau:
+                        //   [s, s+travel1) contains tau  ⟺  s <= tau < s+travel1
+                        let members1: Vec<usize> = intervals[*t1][*v1]
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, (s, _end))| *s <= tau && tau < *s + travel1)
+                            .map(|(idx, _)| idx)
+                            .collect();
+
+                        // Members from visit 2 active at tau:
+                        let members2: Vec<usize> = intervals[*t2][*v2]
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, (s, _end))| *s <= tau && tau < *s + travel2)
+                            .map(|(idx, _)| idx)
+                            .collect();
+
+                        // Only add AMO if the clique has members from BOTH visits
+                        // (pure single-visit groups cannot conflict with each other here).
+                        if members1.is_empty() || members2.is_empty() {
+                            continue;
+                        }
+
+                        // Build a canonical key for deduplication:
+                        // sorted list of (train, visit, interval_idx) triples.
+                        let mut clique_key: Vec<(usize, usize, usize)> = members1
+                            .iter()
+                            .map(|&idx| (*t1, *v1, idx))
+                            .chain(members2.iter().map(|&idx| (*t2, *v2, idx)))
+                            .collect();
+                        clique_key.sort_unstable();
+
+                        if !added_cliques.insert(clique_key) {
+                            // Already added this exact clique; skip.
+                            continue;
+                        }
+
+                        // Record pairwise incompatibilities for the local-minimizer.
+                        // Uses incompat_set for O(1) duplicate detection instead of
+                        // an O(n) linear scan over the Vec.
+                        for &idx1 in &members1 {
+                            for &idx2 in &members2 {
+                                let key1 = (*t1, *v1, idx1);
+                                let key2 = (*t2, *v2, idx2);
+                                if incompat_set.entry(key1).or_default().insert(key2) {
+                                    incompat.entry(key1).or_default().push(key2);
+                                    incompat_set.entry(key2).or_default().insert(key1);
+                                    incompat.entry(key2).or_default().push(key1);
+                                }
                             }
                         }
+
+                        // BIS(K_{a,b}) encoding from Subercaseaux (2025) Section 4.1.
+                        //
+                        // The clique at tau is bipartite by construction:
+                        //   A = intervals from visit (t1,v1) active at tau
+                        //   B = intervals from visit (t2,v2) active at tau
+                        //
+                        // Introduce one auxiliary variable y and add:
+                        //   ∀ s1 ∈ A: ¬lit(s1) ∨ y          (if any A-member fires, y=true)
+                        //   ∀ s2 ∈ B: ¬y ∨ ¬lit(s2)         (y=true forbids all B-members)
+                        //
+                        // This uses |A|+|B| clauses instead of at_most_one's O(k log k).
+                        // For singleton sides (|A|=1 or |B|=1) BIS degenerates to pairwise
+                        // and we avoid creating a useless auxiliary variable.
+                        if members1.len() == 1 && members2.len() == 1 {
+                            // Degenerate case: single pair — direct clause is cheapest.
+                            let l1 = t_vars[*t1][*v1][members1[0]];
+                            let l2 = t_vars[*t2][*v2][members2[0]];
+                            solver.add_clause(None, vec![-l1, -l2]);
+                        } else if members1.len() == 1 {
+                            // |A|=1: ¬l1 ∨ ¬l2 for every l2 ∈ B  (still pairwise, already compact)
+                            let l1 = t_vars[*t1][*v1][members1[0]];
+                            for &idx2 in &members2 {
+                                let l2 = t_vars[*t2][*v2][idx2];
+                                solver.add_clause(None, vec![-l1, -l2]);
+                            }
+                        } else if members2.len() == 1 {
+                            let l2 = t_vars[*t2][*v2][members2[0]];
+                            for &idx1 in &members1 {
+                                let l1 = t_vars[*t1][*v1][idx1];
+                                solver.add_clause(None, vec![-l1, -l2]);
+                            }
+                        } else {
+                            // General BIS: introduce y = "some A-interval is chosen".
+                            let y = solver.new_var();
+                            // ∀ s1 ∈ A: ¬lit(s1) ∨ y
+                            for &idx1 in &members1 {
+                                let l1 = t_vars[*t1][*v1][idx1];
+                                solver.add_clause(None, vec![-l1, y]);
+                            }
+                            // ∀ s2 ∈ B: ¬y ∨ ¬lit(s2)
+                            for &idx2 in &members2 {
+                                let l2 = t_vars[*t2][*v2][idx2];
+                                solver.add_clause(None, vec![-y, -l2]);
+                            }
+                        }
+                        n_conflict_constraints += 1;
                     }
                 }
             }
