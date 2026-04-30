@@ -1,4 +1,7 @@
+pub mod scpb;
+pub mod maxsatddd_ladder_scpb;
 pub mod maxsatddd_ladder;
+pub mod maxsatddd_ladder_nonincr;
 pub mod bigm;
 pub mod binarizedbigm;
 pub mod greedy;

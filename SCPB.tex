@@ -1,0 +1,118 @@
+%%Approach: nội dung chính cả paper, các nghiên cứu có trong paper sẽ được mô tả chi tiết trong phần này.
+% Aim: short but detailed, how to make it easily understandable for the novice?
+
+\section {Pseudo-Boolean constraints encoding}
+\subsection{SCPB Encoding} 
+Trong phần này, nghiên cứu trình bày phương pháp encoding SCPB để biểu diễn AMK, ALK, EK và biểu diễn ràng buộc nằm trong khoảng ($\in [u,v]$). 
+
+Pseudo-Boolean constraint (PB) được biểu diễn dưới dạng: 
+\[\sum_{i=1}^{n}w_iX_i \oplus k \] trong đó $w_i, k$ là các số nguyên dương, $X_i \in \{0,1\}$ và $\oplus \in \{\leq, =, \geq\}$.
+
+ % Trong đó $SCPB_\leq_k$ được revised từ phương pháp $SWC$ \cite{} với số biến và mệnh đề được giảm đi.
+
+Chúng tôi sử dụng các biến đếm biểu diễn nhị phân $R_1$ đến $R_{n-1}$ có tối đa $k$ bits, trong đó $R_i$ gồm $pos_i$ bits được tính như sau:
+\begin{itemize}
+\item $pos_1 = min (k, w_1)$
+\item $pos_i = min (k, \sum_{j=1}^{i}w_j)$ \tab (for all $i < k$)
+\item $pos_i = k$ \tab (for all $i \geq k$) ($R_i$ gồm $k$ bits với $i \geq k$).
+\end{itemize}
+
+Như vậy $R_i$ bao gồm các bits $\{R_{i,1}, R_{i,2},...,R_{i,pos_i}\}$, biểu diễn cho biểu thức $\sum_{j=1}^{i}w_j$ của tập gồm $i$ phần tử $\{X_1, X_2,...X_i\}$. Khi $\sum_{j=1}^{i}w_j = p$ thì có $p$ bits đầu tiên của $R_i$ có giá trị là $1$. Do đó chúng tôi xây dựng phương pháp encoding biểu diễn biểu thức $\sum_{j=1}^{i}w_j$ trên các biến đếm $R_i$ như sau:
+($\longrightarrow$ biểu diễn cho phép toán $implication$):
+\begin{flalign*}
+    & & \bigwedge_{i=1}^{n-1} \bigwedge_{j=1}^{w_i} X_i \longrightarrow R_{i,j}  && (1)\\
+    & & \bigwedge_{i=2}^{n-1} \bigwedge_{j=1}^{pos_{i-1}} R_{i-1,j} \longrightarrow R_{i,j}   && (2)\\
+   & & \bigwedge_{i=2}^{n-1} \bigwedge_{j=1}^{pos_{i-1}} X_i \wedge R_{i-1,j} \longrightarrow R_{i,j+w_i}  && (3)\\
+   & & \bigwedge_{i=2}^{n-1} \bigwedge_{j=1}^{pos_{i-1}} \neg X_i \wedge \neg R_{i-1,j} \longrightarrow \neg R_{i,j}  && (4)\\
+    &\text{For all $i: pos_{i-1} < k$}& \bigwedge_{i=1}^{n-1} \bigwedge_{j=1+pos_{i-1}}^{pos_i} \neg X_i \longrightarrow \neg R_{i,j}  && \text{$pos_0=0$}(5)\\
+    & & \bigwedge_{i=2}^{n-1} \bigwedge_{j=1}^{pos_{i-1}} \neg R_{i-1,j} \longrightarrow \neg R_{i,j+w_i}  && (6)
+\end{flalign*}
+
+Công thức $(1)$ biểu diễn ít nhất $w_i$ bits đầu tiên của $R_i$ là $1$ khi $x_i = 1$. Công thức $(2)$ thực hiện việc copy y nguyên những bits $1$ từ $R_{i-1}$ xuống biến đếm $R_i$. Công thức $(3)$ thiết lập thêm $w_i$ bits liên tiếp tại $R_i$ là $1$ tính từ bits $0$ đầu tiên của $R_{i-1}$. Công thức $(4)$ thực hiện việc copy y nguyên những bits $0$ từ $R_{i-1}$ xuống biến đếm $R_i$ khi $x_i = 0$.
+Công thức $(5)$ đảm bảo các bits mới thêm của $R_i$ so với $R_{i-1}$ là $0$ khi $x_i = 0$.
+Công thức $(6)$ đảm bảo khi $x_i = 1$ thì $R_i$ sẽ chỉ có thêm đúng $w_i$ bits liên tiếp đang có giá trị $0$ tại $R_{i-1}$ chuyển sang $1$ tai $R_i$, còn các bits sau đó vẫn có giá trị là $0$ (khi bits thứ $j$ của $R_{i-1}$ là 0 thì bits thứ $j+w_i$ của $R_i}$ phải là 0.
+
+
+% Các công thức $(1), (2), (3)$ dựa trên biểu diễn $SC$ \cite{sinz2005towards} và cập nhật lại cách biểu diễn công thức cho những $R_i$ với $i<k$ khi số bits biểu diễn không phải là $k$ bits.
+
+\begin{enumerate}
+\item \textit{At Least K encoding -} $SCPB_\geq_k$ \\
+$SCPB_\geq_k$ được xây dựng từ các công thức $(1)$ đến $(6)$ và bổ sung thêm công thức $(7)$ như dưới đây:
+\begin{flalign*}
+&& R_{n-1,k} \vee (X_n \wedge R_{n-1,k-w_n}) && (7) 
+\end{flalign*}
+Công thức $(7)$ được xây dựng để đảm bảo điều kiện có ít nhất $k$ biến là $TRUE$ trong $n$ biến Boolean, tức là bit thứ $k$ của $R_{n-1}$ phải là $1$ hoặc $X_n = TRUE$ và bit thứ $k-w_n$ của $R_{n-1}$ phải là $1$. 
+
+\item \textit{At Most K encoding -} $SCPB_\leq_k$\\
+$NSC_\leq_k$ được xây dựng từ các công thức từ $(1), (2), (3)$ và công thức $(8)$ dưới đây:
+\begin{flalign*}
+&& \bigwedge_{i=2}^{n} X_i \longrightarrow \neg R_{i-1,k+1-w_i} && (8)
+\end{flalign*}
+So sánh với phương pháp của $SWC$ \cite{holldobler2012compact} biểu diễn công thức của chúng tôi là tương tự, tuy nhiên số bits tối đa sử dụng tại các biến đếm $R_i$ là khác nhau. $SWC$ luôn sử dụng $k$ bits cho mọi biến đếm $R_i$, trong khi đó số bits mà mỗi biến đếm $R_i$ sẽ có phụ thuộc vào trọng số và được tính theo công thức $min (k, \sum_{j=1}^{i}w_j)$. Với các trường hợp $k$ lớn và trọng số $w_i$ nhỏ (so với $k$), cách biểu diễn mới của chúng tôi $SCPB_\leq_k$ sẽ giảm đi đáng kế số biến mới tạo ra.   
+
+Khi trọng số đều là 1 ($w_i=1$), chúng tôi chỉ sử dụng $\frac{k(k+1)}{2}$ thay vì $k^2$ bits từ $R_1$ đến $R_k$ ($SWC$ đều sử dụng $k$ bits cho tất cả $R_i$). Do đó $SCPB_\leq_k$ có số lượng bits giảm đi so với $SWC$ là $\frac{k(k-1)}{2}$. Số lượng mệnh đề của $SCPB_\leq_k$ sinh ra là $2nk+n-3k-k^2$ so với số lượng mệnh đề tạo ra của $SWC$ là $2nk+n-3k-1$. Rõ ràng khi $k$ lớn, số lượng mệnh đề sẽ giảm đi đáng kể (i.e., khi $k=10^2$ $SCPB$ sẽ giảm $~10^4-10^2$ mệnh đề so với $SWC$).
+Khi trọng số đều là 1 ($w_i=1$), chúng tôi chỉ sử dụng $\frac{k(k+1)}{2}$ thay vì $k^2$ bits từ $R_1$ đến $R_k$ ($SWC$ đều sử dụng $k$ bits cho tất cả $R_i$). Do đó $SCPB_\leq_k$ có số lượng bits giảm đi so với $SWC$ là $\frac{k(k-1)}{2}$. Số lượng mệnh đề của $SCPB_\leq_k$ sinh ra là $2nk+n-3k-k^2$ so với số lượng mệnh đề tạo ra của $SWC$ là $2nk+n-3k-1$. Rõ ràng khi $k$ lớn, số lượng mệnh đề sẽ giảm đi đáng kể (i.e., khi $k=10^2$ $SCPB$ sẽ giảm $~10^4-10^2$ mệnh đề so với $SWC$).
+Bảng \ref{tab:scpb_amk} chỉ ra số lượng biến thêm mới và số lượng mệnh đề sinh ra của phương pháp mới $SCPB_\leq_k$ so với $SWC$ khi các trọng số $w_i=1$.
+\begin{table}
+\centering
+\scalebox{1.0}{
+\begin{tabular}[b]{|c|c|c|}
+\hline
+{Method} & {New Variables} & {Clauses}    \\
+\hline 
+$\textbf{SWC}$       & $k(n-1)$     &    $2nk+n-4k$\\
+\hline
+$\textbf{SCPB}_\leq_k$ & $k(n-1)-\frac{k(k-1)}{2}$ & $2nk+n-3k-k^2$ \\     
+\hline
+\end{tabular}
+}
+\caption{Số lượng biến thêm mới và mệnh đề sinh ra của $SWC$ \cite{holldobler2012compact} và $SCPB_\leq_k$ khi $w_i=1$}
+\label{tab:scpb_amk}
+\end{table}
+
+\item \textit{Exactly K encoding} - $SCPB_=_k$\\
+Phương pháp biểu diễn cho $SCPB_=_k$ (biểu diễn cho công thức $\sum_{i=1}^{n}w_iX_i = k$) sử dụng các công thức từ số $(1)$ đến $(8)$ khi kết hợp cả hai biểu diễn của $SCPB_\geq_k$ và $SCPB_\leq_k$. 
+
+Các nghiên cứu trước đây đưa công thức $EK$ về biểu diễn thông qua $AMK$ và $ALK$, sẽ tạo ra hai lần encoding riêng lần lượt cho AMK và ALK. Như vậy sẽ cần thêm nhiều biến và tạo ra nhiều mệnh đề để encoding cho 2 lần encoding AMK và ALK. Phương pháp biểu diễn trực tiếp $EK$ của chúng tôi đề xuất $SCPB_=_k$ sẽ thực hiện 1 lần encoding và giúp giảm đi số biến, số mệnh đề thay vì phải kết hợp cả hai biểu diễn AMK và ALK.
+
+\item \textit{Range encoding for \textit{$k \in [u,v]$} - $SCPB_{[u,v]}$}\\
+Biểu diễn cho ràng buộc nằm trong khoảng $SCPB_{[u,v]}$ có dạng $u \leq \sum_{i=1}^{n}w_iX_i \leq v$. $SCPB_{[u,v]}$ sử dụng các công thức từ $(1)$ đến $(8)$, trong đó công thức $(7)$ thay $k$ bằng $u$ (cho biểu diễn $\geq_u$) và công thức $(8)$ thay $k$ bằng $v$ (cho biểu diễn $\leq_v$). Do đó phương pháp encoding cho $SCPB_{[u,v]}$ như sau:
+\begin{flalign*}
+    & & \bigwedge_{i=1}^{n-1} \bigwedge_{j=1}^{w_i} X_i \longrightarrow R_{i,j}  &&\\
+    & & \bigwedge_{i=2}^{n-1} \bigwedge_{j=1}^{pos_{i-1}} R_{i-1,j} \longrightarrow R_{i,j}   &&\\
+   & & \bigwedge_{i=2}^{n-1} \bigwedge_{j=1}^{pos_{i-1}} X_i \wedge R_{i-1,j} \longrightarrow R_{i,j+w_i}  &&\\
+   & & \bigwedge_{i=2}^{n-1} \bigwedge_{j=1}^{pos_{i-1}} \neg X_i \wedge \neg R_{i-1,j} \longrightarrow \neg R_{i,j}  &&\\
+    &\text{For all $i: pos_{i-1} < k$}& \bigwedge_{i=1}^{n-1} \bigwedge_{j=1+pos_{i-1}}^{pos_i} \neg X_i \longrightarrow \neg R_{i,j}  && \text{$pos_0=0$}\\
+    & & \bigwedge_{i=2}^{n-1} \bigwedge_{j=1}^{pos_{i-1}} \neg R_{i-1,j} \longrightarrow \neg R_{i,j+w_i}  && \\
+    && R_{n-1,u} \vee (X_n \wedge R_{n-1,k-w_n}) && \\ 
+    && \bigwedge_{i=2}^{n} X_i \longrightarrow \neg R_{i-1,v+1-w_i} &&\\       
+\end{flalign*}
+\end{enumerate}
+
+\subsection{A Hybrid SCPB encoding - $SCPB^h$}
+Giá trị $k$ trong PB sẽ ảnh hướng đến số bits biểu diễn trong các biến đếm $R_i$ và các mệnh đề sinh ra tương ứng.
+Xét thí dụ ALK sau: $3X_1 + 5X_2 + 7X_3+ 2X_4 + 6X_5 + 4X_6 \geq 22$, công thức trên khi thực hiện Normalize về biểu diễn bằng $\leq$ khi nhân $-1$ vào 2 vế, công thức được đưa về dạng như dưới đây:
+\begin{align*}
+    & &3X_1 + 5X_2 + 7X_3+ 2X_4 + 6X_5 + 4X_6 \geq 22  &&\\
+    & &-3X_1 - 5X_2 - 7X_3 - 2X_4 - 6X_5 - 4X_6 \leq -22  &&\\
+    & &-3(1-\neg X_1) - 5(1-\neg X_2) - 7(1-\neg X_3) - 2(1-\neg X_4) - 6(1-\neg X_5) - 4(1-\neg X_6) \leq -22  &&\\
+     & &3\neg X_1 +5 \neg X_2 + 7\neg X_3 + 2\neg X_4 + 6\neg X_5 + 4\neg X_6 \leq 5  &&
+\end{align*}
+
+Do đó công thức $3X_1 + 5X_2 + 7X_3+ 2X_4 + 6X_5 + 4X_6 \geq 22$ được Normalize về biểu diễn $3\neg X_1 +5 \neg X_2 + 7\neg X_3 + 2\neg X_4 + 6\neg X_5 + 4\neg X_6 \leq 5$ để giảm số lượng biến và số lượng mệnh đề (thay vì mỗi $R_i$ có tối đa $22$ bits cho biểu diễn $\geq$ thì sẽ được biểu diễn bằng $\leq$ với tối đa 5 bits cho mỗi $R_i$.
+
+Đặt $totalW = \sum_{i=1}^{n}w_i$ (total weights of a PB), thực hiện Normalize khi nhân $-1$ vào hai vế của constraint PB để chuyển từ ràng buộc $\leq$ sang $\geq$ và ngược lại. Do đó để encoding cho $AMK$ và $ALK$ chúng tôi dựa trên giá trị $k$ so với $totalW$ để sử dụng phương pháp encoding $\leq$ hay $\geq$ như dưới đây:
+
+$SCPB_{\geq}^{h}_k$\equiv 
+\begin{cases}
+$SCPB \geq_k$ & \text{ iff giá trị $k$ nhỏ (so với $totalW$}),\\
+$SCPB \leq_{(n-k)}$ & \text{ iff giá trị $k$ lớn (gần với $totalW$})
+\end{cases}
+
+$SCPB_{\leq}^{h}_k$\equiv 
+\begin{cases}
+$SCPB \leq_k$ & \text{ iff giá trị $k$ nhỏ (so với $totalW$}),\\
+$SCPB \geq_{(n-k)}$ & \text{ iff giá trị $k$ lớn (gần với $totalW$})
+\end{cases}
+
+

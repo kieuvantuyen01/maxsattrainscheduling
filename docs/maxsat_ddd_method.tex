@@ -1,0 +1,1230 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage[vietnamese]{babel}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[table]{xcolor}
+\usepackage{tcolorbox}
+
+\newtheorem{definition}{Định nghĩa}
+\newtheorem{theorem}{Định lý}
+\newtheorem{corollary}{Hệ quả}
+
+\newtcolorbox{hardbox}{colback=blue!5!white, colframe=blue!75!black, title=Hard Clause}
+\newtcolorbox{softbox}{colback=red!5!white, colframe=red!75!black, title=Soft Clause}
+
+\title{Phương pháp MaxSAT DDD cho bài toán\\Train Rescheduling:\\Mô hình và Cài đặt chi tiết}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+% ================================================================
+\section{Mô hình bài toán Train Rescheduling (TRP)}
+% ================================================================
+
+\subsection{Mạng lưới đường sắt và đường đi của tàu}
+
+Mạng lưới đường sắt gồm tập $R$ các \emph{track segment} (đoạn đường ray). Mỗi tàu $i \in I$ có một \emph{rail path} $R_i \subseteq R$ là dãy các track segment liên tiếp mà tàu đi qua. Với mỗi $r \in R_i$, ký hiệu:
+\begin{itemize}
+  \item $l^r_i$: thời gian chạy tối thiểu (\emph{travel time}) của tàu $i$ trên segment $r$.
+  \item $\underline{t}^{ir}$: thời điểm sớm nhất (\emph{earliest time}) tàu $i$ có thể vào segment $r$.
+\end{itemize}
+
+Trong cài đặt (file \texttt{problem.rs}), mỗi tàu được biểu diễn bởi struct \texttt{Train} gồm danh sách các \texttt{Visit}:
+\begin{verbatim}
+pub struct Train { pub visits: Vec<Visit> }
+pub struct Visit {
+    pub resource_id: usize,    // ID cua track segment (resource)
+    pub earliest: i32,         // t_ir (earliest entry time)
+    pub aimed: Option<i32>,    // thoi diem mong muon (tinh cost)
+    pub travel_time: i32,      // l^r (thoi gian chay toi thieu)
+}
+\end{verbatim}
+
+\subsection{Lịch trình và Conflicts}
+
+\begin{definition}[Lịch trình khả thi]
+Một \emph{lịch trình} $t = \{t^{ir} \mid i \in I, r \in R_i\}$ gán thời điểm vào cho mỗi visit. Lịch trình khả thi phải thỏa mãn:
+\begin{enumerate}[label=(\roman*)]
+  \item \textbf{Lower bound:} $t^{ir} \geq \underline{t}^{ir}$ với mọi $i, r$.
+  \item \textbf{Travel time (precedence):} $t^{iq} \geq t^{ir} + l^r$ với mọi $i \in I$, $r \prec_i q$.
+  \item \textbf{Disjunctive (resource conflict):} Với mọi cặp $(i,r)$ và $(j,q)$ sử dụng chung resource, phải có: $t^{jq} \geq t^{ir} + l^{rq}$ hoặc $t^{ir} \geq t^{jq} + l^{qr}$.
+\end{enumerate}
+\end{definition}
+
+Trong cài đặt, các cặp resource có thể conflict được lưu trong \texttt{Problem.conflicts: Vec<(usize, usize)>}. Đa số các instance chỉ có conflict giữa resource với chính nó (hai tàu không chiếm cùng segment cùng lúc).
+
+\subsection{Hàm mục tiêu}
+
+Mục tiêu là tối thiểu hóa tổng delay cost $\sum_{i \in I} c^{if}$. Cài đặt hỗ trợ nhiều loại cost qua enum \texttt{DelayCostType}:
+
+\begin{enumerate}
+  \item \textbf{Stepwise hữu hạn} (\texttt{FiniteSteps}): hàm bậc thang với ngưỡng cố định, ví dụ:
+  \[
+  c^{if} = \begin{cases} 3 & d > 360s \\ 2 & d > 180s \\ 1 & d > 0 \\ 0 & d = 0 \end{cases}
+  \]
+
+  \item \textbf{Stepwise vô hạn} (\texttt{InfiniteSteps}): $c^{if} = \lceil d / Q \rceil$ với bước $Q$ (60s, 180s, hoặc 360s).
+
+  \item \textbf{Liên tục} (\texttt{Continuous}): $c^{if} = \max(0, t^{if} - \underline{t}^{if})$.
+\end{enumerate}
+
+\noindent Trong đó $d = \max(0,\; t^{if} - \text{aimed}^{if})$ là delay so với thời gian mong muốn.
+
+
+% ================================================================
+\section{Phương pháp Dynamic Discretization Discovery (DDD)}
+% ================================================================
+
+\subsection{Ý tưởng chính}
+
+Thay vì sử dụng full Time-Indexed formulation (quá lớn) hay Big-M formulation (LP relaxation yếu), DDD giải một chuỗi các bài toán TI \emph{nhỏ hơn} bằng cách chia planning horizon thành các interval có kích thước khác nhau.
+
+\subsection{Interval Assignment Problem (IAP)}
+
+Với mỗi $i \in I, r \in R_i$, chia feasibility interval $[\underline{t}^{ir}, M)$ thành partition $\Lambda^{ir} = \{\lambda_1^{ir}, \lambda_2^{ir}, \ldots\}$ với $\lambda_p^{ir} = [h_p^{ir}, h_{p+1}^{ir})$.
+
+\begin{definition}[Gán interval khả thi]
+Hàm $S: \Omega \to \Lambda$ gán cho mỗi $(i,r)$ một interval $S(i,r) \in \Lambda^{ir}$ là \emph{khả thi} nếu không có cặp interval nào incompatible.
+\end{definition}
+
+\begin{definition}[Incompatibility]
+Hai interval $\lambda_p^{ir}$ và $\lambda_{p'}^{jq}$ là:
+\begin{itemize}
+  \item \textbf{Rail path incompatible} (cùng tàu $i=j$, $r \prec_i q$) nếu: $h_p^{ir} + l^r > h_{p'+1}^{iq}$.
+  \item \textbf{Conflict incompatible} (khác tàu $i \neq j$) nếu: $h_{p'}^{jq} + l^{qr} > h_{p+1}^{ir}$ \textbf{và} $h_p^{ir} + l^{rq} > h_{p'+1}^{jq}$.
+\end{itemize}
+\end{definition}
+
+\begin{theorem}
+Nếu TRP có lời giải tối ưu $t^*$, thì IAP có lời giải tối ưu $S^*$ với $\bar{c}(S^*) \leq c(t^*)$. Tức giá trị tối ưu của IAP là \textbf{lower bound} cho TRP.
+\end{theorem}
+
+\subsection{Vòng lặp DDD}
+
+\begin{enumerate}
+  \item \textbf{Khởi tạo:} Mỗi $(i,r)$ chỉ có 1 interval $[\underline{t}^{ir}, M)$.
+  \item \textbf{Giải IAP:} Tìm interval assignment $S_k^*$ tối ưu. Tính schedule $\tau_k^* = \Phi(S_k^*)$ bằng cách gán mỗi tàu vào thời điểm đầu interval.
+  \item \textbf{Kiểm tra:} Nếu $\tau_k^*$ khả thi $\to$ tối ưu. Nếu có vi phạm, \emph{refine} bằng cách split interval tại điểm conflict.
+\end{enumerate}
+
+
+% ================================================================
+\section{Mô hình MaxSAT cho IAP --- Phân loại Hard/Soft}
+\label{sec:maxsat}
+% ================================================================
+
+IAP chỉ chứa biến nhị phân, nên có thể chuyển sang SAT/MaxSAT. Phần này mô tả chi tiết mô hình, \textbf{phân biệt rõ hard constraints và soft constraints}.
+
+\subsection{Biến Boolean --- Ladder/Unary Delay Encoding}
+\label{sec:ladder}
+
+Đây là biến thể \textbf{chính} được sử dụng (file \texttt{maxsatddd\_ladder.rs}). Mỗi visit $(i,r)$ có một \emph{chuỗi delay} gồm các biến Boolean sắp xếp theo thời gian tăng dần:
+\[
+d_0^{ir} \Rightarrow d_1^{ir} \Rightarrow d_2^{ir} \Rightarrow \cdots \Rightarrow d_{n}^{ir}
+\]
+
+trong đó $d_k^{ir} = 1$ nghĩa là ``tàu $i$ vào resource $r$ tại thời điểm $\geq t_k$'' (tức là bị delay ít nhất đến $t_k$). Đây là chuỗi \emph{monotone giảm}: nếu delay đến $t_k$ thì chắc chắn delay đến mọi $t_j$ với $j < k$.
+
+\paragraph{Cấu trúc dữ liệu Occ.} Mỗi visit được lưu trong struct \texttt{Occ}:
+\begin{verbatim}
+struct Occ<L: satcoder::Lit> {
+    cost: Vec<Bool<L>>,          // cost variables
+    cost_tree: CostTree<L>,      // cay chi phi
+    delays: Vec<(Bool<L>, i32)>, // day cac (bien_delay, thoi_diem)
+    incumbent_idx: usize,        // vi tri loi giai hien tai
+}
+\end{verbatim}
+
+Trường \texttt{delays} chứa danh sách $[(d_0, t_0), (d_1, t_1), \ldots, (d_n, \infty)]$ với:
+\begin{itemize}
+  \item $d_0 = \texttt{true}$ (luôn delay ít nhất đến earliest time).
+  \item $d_n = \texttt{false}$ (sentinel, không bao giờ delay đến $\infty$).
+  \item Clause ràng buộc thứ tự: $d_{k+1} \Rightarrow d_k$ (tức $\overline{d_{k+1}} \vee d_k$).
+\end{itemize}
+
+\paragraph{Ngữ nghĩa.} ``Tàu $i$ vào resource $r$ trong interval $[t_k, t_{k+1})$'' tương đương với $d_k = 1 \wedge d_{k+1} = 0$. Vị trí \texttt{incumbent\_idx} chỉ ra interval hiện tại: $d_{\text{idx}} = 1$ và $d_{\text{idx}+1} = 0$.
+
+\paragraph{Thêm time point mới.} Khi DDD cần refine (chia interval), hàm \texttt{time\_point()} chèn biến mới vào giữa chuỗi delay:
+
+\begin{algorithm}[H]
+\caption{Thêm time point $t$ vào chuỗi delay của visit}
+\begin{algorithmic}[1]
+\Function{TimePoint}{solver, $t$}
+  \State idx $\gets$ vị trí sao cho $t_{\text{idx}-1} < t \leq t_{\text{idx}}$
+  \If{$t_{\text{idx}} == t$} \Return $(d_{\text{idx}},\; \texttt{false})$ \Comment{đã tồn tại}
+  \EndIf
+  \State $v \gets$ \Call{NewVar}{solver}
+  \State Chèn $(v, t)$ vào vị trí idx
+  \State Thêm \textcolor{blue}{hard clause}: $\overline{v} \vee d_{\text{idx}-1}$ \Comment{$v \Rightarrow d_{\text{idx}-1}$}
+  \State Thêm \textcolor{blue}{hard clause}: $\overline{d_{\text{idx}+1}} \vee v$ \Comment{$d_{\text{idx}+1} \Rightarrow v$}
+  \State \Return $(v,\; \texttt{true})$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\noindent
+Mỗi biến mới chỉ cần \textbf{2 hard clause} để duy trì tính monotone ($d_{k+1} \Rightarrow d_k$), thay vì $O(n)$ clause cho exactly-one trong one-hot encoding.
+
+
+% ================================================================
+\subsection{Phân loại Hard Constraints và Soft Constraints}
+\label{sec:hard-soft}
+% ================================================================
+
+Mô hình MaxSAT gồm hai loại clause:
+
+\begin{hardbox}
+\textbf{Hard clauses} --- \emph{phải} được thỏa mãn trong mọi lời giải. Vi phạm hard clause nghĩa là lịch trình không khả thi.
+\end{hardbox}
+
+\begin{softbox}
+\textbf{Soft clauses} --- \emph{mong muốn} được thỏa mãn, mỗi clause có weight $w > 0$. MaxSAT tối thiểu hóa tổng weight các soft clause bị vi phạm.
+\end{softbox}
+
+\subsubsection{Danh sách Hard Clauses}
+
+\begin{enumerate}
+  \item \textbf{H1 --- Delay chain (thứ tự thời gian):}
+  \begin{hardbox}
+  $\overline{d_{k+1}^{ir}} \vee d_k^{ir}$ \quad cho mỗi cặp thời điểm liên tiếp $t_k < t_{k+1}$ của visit $(i,r)$.
+  \end{hardbox}
+  \emph{Ý nghĩa:} nếu tàu delay ít nhất đến $t_{k+1}$ thì chắc chắn delay ít nhất đến $t_k$.
+
+  \item \textbf{H2 --- Travel time (precedence):}
+  \begin{hardbox}
+  $\overline{d_{t}^{i,v}} \vee d_{t+l^v}^{i,v+1}$ \quad khi phát hiện vi phạm travel time.
+  \end{hardbox}
+  \emph{Ý nghĩa:} nếu tàu $i$ delay đến $t$ tại visit $v$, thì tại visit $v+1$ phải delay ít nhất đến $t + l^v$.
+
+  \item \textbf{H3 --- Resource conflict (disjunctive):}
+  \begin{hardbox}
+  $\overline{d_{t_{1,\text{out}}}^{v_1}} \vee \overline{d_{t_{2,\text{out}}}^{v_2}} \vee d_{t_{2,\text{out}}}^{v_1} \vee d_{t_{1,\text{out}}}^{v_2}$
+  \end{hardbox}
+  \emph{Ý nghĩa:} khi hai tàu chiếm cùng resource và overlap, ít nhất một tàu phải delay để tránh nhau.
+
+  \item \textbf{H4 --- Cost implication:}
+  \begin{hardbox}
+  $\overline{d_t^{ir}} \vee y_c^{ir}$ \quad khi $\text{delay\_cost}(i, r, t) = c > 0$.
+  \end{hardbox}
+  \emph{Ý nghĩa:} nếu tàu $i$ delay đến $t$ tại visit $r$, thì chi phí ít nhất $c$.
+
+  \item \textbf{H5 --- Cost ordering:}
+  \begin{hardbox}
+  $\overline{y_{c'}^{ir}} \vee y_c^{ir}$ \quad với $c' > c$.
+  \end{hardbox}
+  \emph{Ý nghĩa:} chi phí $\geq c'$ implies chi phí $\geq c$.
+
+  \item \textbf{H6 --- Totalizer clauses (RC2):}
+  \begin{hardbox}
+  Các clause nội bộ của Totalizer tree, encode ràng buộc $\sum \overline{l_i} \leq k$.
+  \end{hardbox}
+  \emph{Ý nghĩa:} xuất hiện khi RC2 xử lý UNSAT core, giới hạn số soft clause cùng bị vi phạm.
+\end{enumerate}
+
+\subsubsection{Danh sách Soft Clauses}
+
+\begin{enumerate}
+  \item \textbf{S1 --- Cost minimization:}
+  \begin{softbox}
+  $(\overline{y_c^{ir}}, \; w = \Delta c)$ \quad cho mỗi mức cost $c$ của mỗi visit $(i,r)$.
+  \end{softbox}
+  \emph{Ý nghĩa:} ``không muốn chi phí $\geq c$'', weight $= \Delta c$ là chênh lệch chi phí giữa mức $c$ và mức thấp hơn gần nhất.
+
+  \item \textbf{S2 --- Totalizer bound (RC2):}
+  \begin{softbox}
+  $(\overline{\text{tot.rhs}[k]}, \; w = w_{\min})$ \quad từ RC2 core processing.
+  \end{softbox}
+  \emph{Ý nghĩa:} ``tổng số lần vi phạm trong core $\leq k$'', weight là min weight trong core.
+\end{enumerate}
+
+\paragraph{Tóm tắt.} Bảng phân loại:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llcl}
+\toprule
+\textbf{ID} & \textbf{Loại} & \textbf{Hard/Soft} & \textbf{Nguồn gốc} \\
+\midrule
+H1 & Delay chain & \textcolor{blue}{\textbf{Hard}} & Khởi tạo \& refine \\
+H2 & Travel time & \textcolor{blue}{\textbf{Hard}} & Travel time conflict \\
+H3 & Resource conflict & \textcolor{blue}{\textbf{Hard}} & Resource conflict \\
+H4 & Cost implication & \textcolor{blue}{\textbf{Hard}} & CostTree.add\_cost \\
+H5 & Cost ordering & \textcolor{blue}{\textbf{Hard}} & CostTree.add\_cost \\
+H6 & Totalizer internal & \textcolor{blue}{\textbf{Hard}} & RC2 core processing \\
+\midrule
+S1 & Cost minimization & \textcolor{red}{\textbf{Soft}} & CostTree.add\_cost \\
+S2 & Totalizer bound & \textcolor{red}{\textbf{Soft}} & RC2 core processing \\
+\bottomrule
+\end{tabular}
+\caption{Phân loại hard/soft constraints trong mô hình MaxSAT}
+\end{table}
+
+\paragraph{Nhận xét quan trọng.}
+\begin{itemize}
+  \item Tất cả ràng buộc \emph{vật lý} (travel time, resource conflict, thứ tự thời gian) là \textbf{hard} --- không thể vi phạm.
+  \item Chỉ các ràng buộc \emph{chi phí} (delay cost) là \textbf{soft} --- solver cố gắng giảm thiểu tổng cost nhưng có thể ``chấp nhận'' delay.
+  \item RC2 tạo thêm cả hard (Totalizer internal) lẫn soft (Totalizer bound) trong quá trình giải.
+\end{itemize}
+
+
+% ================================================================
+\section{Encoding hàm mục tiêu}
+% ================================================================
+
+\subsection{CostTree --- Biểu diễn chi phí dưới dạng cây}
+
+Hàm mục tiêu được encode bằng cấu trúc \texttt{CostTree} (file \texttt{costtree.rs}). Mỗi visit có một cost tree riêng. Ý tưởng:
+
+\begin{itemize}
+  \item Mỗi node trong cây ứng với một \emph{mức chi phí} $c$ và một biến Boolean $y_c$.
+  \item $y_c = 1$ nghĩa là ``chi phí tại visit này $\geq c$''.
+  \item Các node tạo thành chuỗi implication: $y_{c'} \Rightarrow y_c$ với $c < c'$ (chi phí cao hơn $\Rightarrow$ chi phí thấp hơn chắc chắn đạt) --- đây là \textbf{hard clause H5}.
+  \item Mỗi biến $y_c$ tạo \textbf{soft clause S1}: $\overline{y_c}$ với weight = $\Delta c$.
+\end{itemize}
+
+\paragraph{Ví dụ.} Với stepwise cost $\{0, 1, 2, 3\}$ tại ngưỡng $\{0, 180s, 360s\}$:
+\begin{itemize}
+  \item $y_1$: chi phí $\geq 1$. \textcolor{red}{Soft: $\overline{y_1}$, weight 1.}
+  \item $y_2$: chi phí $\geq 2$. \textcolor{blue}{Hard: $y_2 \Rightarrow y_1$.} \textcolor{red}{Soft: $\overline{y_2}$, weight 1.}
+  \item $y_3$: chi phí $\geq 3$. \textcolor{blue}{Hard: $y_3 \Rightarrow y_2$.} \textcolor{red}{Soft: $\overline{y_3}$, weight 1.}
+\end{itemize}
+
+Khi một time point mới $t$ có delay cost $c$ được thêm, cost tree tạo:
+\begin{itemize}
+  \item \textcolor{blue}{Hard clause H4}: $\overline{d_t} \vee y_c$ (nếu tàu delay đến $t$, thì chi phí ít nhất $c$).
+  \item \textcolor{red}{Soft clause S1}: $\overline{y_c}$ với weight $= \Delta c$ (nếu mức $c$ là mới).
+\end{itemize}
+
+
+% ================================================================
+\section{Thuật toán RC2 Core-Guided MaxSAT}
+\label{sec:rc2}
+% ================================================================
+
+Cài đặt sử dụng thuật toán \emph{RC2 (Relaxable Cardinality Constraints)} để giải MaxSAT.
+
+\subsection{Nguyên lý RC2}
+
+\begin{algorithm}[H]
+\caption{RC2 MaxSAT Loop (tích hợp trong DDD)}
+\begin{algorithmic}[1]
+\State $\text{total\_cost} \gets 0$
+\State $\text{soft\_constraints} \gets$ HashMap từ literal $\to$ (loại, weight, weight\_gốc)
+\Loop
+  \State Sắp xếp assumptions theo weight giảm dần
+  \State result $\gets$ SAT solver với assumptions (lấy tối đa $n\_\text{assumps}$ literal)
+  \If{SAT và $n_\text{assumps} < |\text{soft\_constraints}|$}
+    \State $n_\text{assumps} \gets n_\text{assumps} + 20$ \Comment{tăng dần số assumptions}
+    \State \textbf{continue}
+  \ElsIf{SAT}
+    \State Cập nhật \texttt{incumbent\_idx} cho mỗi visit
+    \State Thực hiện local minimization
+    \State \textbf{break} (chuyển sang conflict detection)
+  \ElsIf{UNSAT (có core)}
+    \State Xử lý core (xem mục \ref{sec:core})
+  \EndIf
+\EndLoop
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Xử lý UNSAT Core}
+\label{sec:core}
+
+Khi solver trả về UNSAT core $C = \{l_1, l_2, \ldots, l_m\}$:
+
+\begin{enumerate}
+  \item Tính $w_{\min} = \min_{l \in C} \text{weight}(l)$.
+  \item $\text{total\_cost} \gets \text{total\_cost} + w_{\min}$.
+  \item Với mỗi $l \in C$:
+    \begin{itemize}
+      \item Giảm weight: $\text{weight}(l) \gets \text{weight}(l) - w_{\min}$.
+      \item Nếu weight $= 0$:
+        \begin{itemize}
+          \item \texttt{Delay}: loại bỏ khỏi soft constraints.
+          \item \texttt{Totalizer(tot, bound)}: tăng bound, tạo \textcolor{red}{soft S2} mới.
+        \end{itemize}
+    \end{itemize}
+  \item Nếu $|C| > 1$: tạo \textbf{Totalizer} mới (tạo thêm \textcolor{blue}{hard H6}):
+    \[
+    \text{tot} = \text{Totalizer::count}(\overline{l_1}, \overline{l_2}, \ldots, \overline{l_m}, \text{bound}=1)
+    \]
+    Thêm \textcolor{red}{soft S2}: $\overline{\text{tot.rhs}[1]}$ (``tổng $\leq 1$'') với weight $w_{\min}$.
+  \item Nếu $|C| = 1$: thêm \textcolor{blue}{hard clause} $\overline{l_1}$.
+\end{enumerate}
+
+\paragraph{Totalizer.} Là cấu trúc cây (sorting network) encode ràng buộc cardinality: $\sum \overline{l_i} \leq k$. Bên trong Totalizer có nhiều \textcolor{blue}{hard clauses H6}. Khi cần tăng bound $k \to k+1$, totalizer thêm hard clauses mới qua \texttt{increase\_bound()}.
+
+\paragraph{Incremental assumptions.} Cài đặt sử dụng kỹ thuật \emph{partial assumptions}: ban đầu chỉ gửi 20 soft literals có weight cao nhất cho solver. Nếu SAT, tăng thêm 20 literals cho đến khi tất cả được bao phủ. Điều này giúp solver tìm core nhỏ hơn ở giai đoạn đầu.
+
+
+% ================================================================
+\section{Vòng lặp DDD chính}
+\label{sec:ddd-loop}
+% ================================================================
+
+\begin{algorithm}[H]
+\caption{DDD-TRP Main Loop (Ladder encoding variant)}
+\begin{algorithmic}[1]
+\State Khởi tạo: mỗi visit có 1 delay variable $d_0 = \texttt{true}$ tại $t = \text{earliest}$
+\Loop
+  \If{timeout} \Return lỗi timeout \EndIf
+  \If{last iteration was SAT}
+    \Comment{--- Conflict Detection Phase ---}
+    \ForAll{visit có thay đổi}
+      \State \textbf{Travel time check:}
+      \If{$t_\text{in}^{v} + l^v > t_\text{in}^{v+1}$}
+        \State Tạo time point mới $t_\text{new} = t_\text{in}^v + l^v$ tại visit $v+1$
+        \State Thêm \textcolor{blue}{hard H2}: $d_{t_\text{in}}^v \Rightarrow d_{t_\text{new}}^{v+1}$
+      \EndIf
+      \State \textbf{Resource conflict check:}
+      \ForAll{tàu khác trên cùng resource}
+        \If{occupation intervals overlap}
+          \State Tạo time points mới, thêm \textcolor{blue}{hard H3}: disjunctive 4-literal
+        \EndIf
+      \EndFor
+    \EndFor
+    \If{không có conflict}
+      \State Extract solution, verify, \Return optimal
+    \EndIf
+  \EndIf
+  \State \textbf{Xử lý time points mới:} thêm \textcolor{blue}{hard H4, H5} và \textcolor{red}{soft S1}
+  \State \textbf{RC2 solve:} call SAT solver, nếu UNSAT: thêm \textcolor{blue}{hard H6} và \textcolor{red}{soft S2}
+  \State \textbf{Nếu SAT:} cập nhật incumbent, local minimize
+\EndLoop
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Local Minimization}
+
+Sau khi tìm được lời giải SAT, cài đặt thực hiện \emph{local minimization}: lặp qua tất cả visits và thử giảm \texttt{incumbent\_idx} (chọn interval sớm hơn) nếu không gây conflict mới. Quá trình này giảm delay không cần thiết mà MaxSAT solver có thể tạo ra do laziness trong conflict generation.
+
+\subsection{Heuristic Thread}
+
+Cài đặt chạy một \emph{heuristic thread} song song (sử dụng BigM solver với Gurobi) để tìm upper bound. Khi lower bound (từ MaxSAT) bằng upper bound (từ heuristic), giải thuật kết thúc sớm mà không cần chứng minh tính tối ưu hoàn toàn qua MaxSAT.
+
+
+% ================================================================
+\section{Hai tầng Incremental: SAT Solver vs MaxSAT}
+\label{sec:sat-strategies}
+% ================================================================
+
+Thuật toán hiện tại có \textbf{hai vòng lặp lồng nhau}, mỗi vòng tương ứng với một tầng ``incremental'' khác nhau. Hai tầng này hoàn toàn độc lập và có thể được cấu hình riêng biệt.
+
+\subsection{Cấu trúc hai vòng lặp}
+
+\begin{algorithm}[H]
+\caption{Cấu trúc lồng nhau: DDD loop $\supset$ RC2 loop $\supset$ SAT call}
+\begin{algorithmic}[1]
+\State \textbf{solver} $\gets$ NewSATSolver() \Comment{\textcolor{blue}{SAT solver instance}}
+\Loop \Comment{\fbox{\textbf{Vòng ngoài: DDD iteration}}}
+  \State Phát hiện conflicts $\to$ thêm \textcolor{blue}{hard clauses H1--H3} vào solver
+  \State Thêm time points $\to$ thêm \textcolor{blue}{hard H4, H5} và \textcolor{red}{soft S1} vào solver
+  \Loop \Comment{\fbox{\textbf{Vòng trong: RC2 MaxSAT loop}}}
+    \State result $\gets$ solver.\textbf{solve\_with\_assumptions}(soft literals) \Comment{\fbox{SAT call}}
+    \If{SAT}
+      \State Cập nhật incumbent $\to$ \textbf{break} sang DDD iteration mới
+    \ElsIf{UNSAT (core)}
+      \State Thêm \textcolor{blue}{hard H6} (Totalizer) và \textcolor{red}{soft S2} vào solver
+      \State total\_cost $\mathrel{+}= w_{\min}$ \Comment{tiếp tục RC2 loop}
+    \EndIf
+  \EndLoop
+\EndLoop
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Tầng 1: Incremental SAT Solver}
+\label{sec:incr-sat}
+
+\textbf{Câu hỏi:} Có nên \emph{tái sử dụng} cùng SAT solver instance giữa các lần gọi \texttt{solve\_with\_assumptions()}?
+
+\begin{itemize}
+  \item \textbf{Incremental SAT} (hiện tại): Một SAT solver duy nhất được tạo lần đầu và sử dụng cho \emph{tất cả} SAT calls --- cả trong RC2 loop lẫn qua các DDD iterations. Clauses chỉ được \emph{thêm} vào, không bao giờ bị xóa.
+
+  \item \textbf{Non-Incremental SAT}: Tạo SAT solver mới trước mỗi (hoặc một số) SAT call. Phải add lại \emph{toàn bộ} hard clauses hiện có.
+\end{itemize}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\toprule
+\textbf{Tiêu chí} & \textbf{Incremental SAT} & \textbf{Non-Incremental SAT} \\
+\midrule
+Learned clauses & Giữ qua các SAT calls & Mất mỗi lần tạo mới \\
+Add clauses & Chỉ thêm clauses mới & Phải add lại tất cả \\
+Preprocessing & Chỉ lần đầu & Có thể mỗi lần \\
+Clause database & Tích lũy, ngày càng lớn & Sạch sẽ mỗi lần \\
+Warm start & Có & Không \\
+\bottomrule
+\end{tabular}
+\caption{Incremental vs Non-Incremental ở tầng \textbf{SAT solver}}
+\end{table}
+
+\paragraph{SAT solver hỗ trợ incremental.} Trong cài đặt, SAT solver cung cấp interface \texttt{SatSolverWithCore} với hai phương thức chính:
+\begin{itemize}
+  \item \texttt{add\_clause(clause)}: thêm hard clause, \textbf{tồn tại vĩnh viễn}.
+  \item \texttt{solve\_with\_assumptions(assumptions)}: giải SAT dưới tập assumptions, trả về SAT (model) hoặc UNSAT (core). Assumptions chỉ có hiệu lực cho lần gọi hiện tại.
+\end{itemize}
+Các SAT solver hiện đại như CaDiCaL, Lingeling đều hỗ trợ incremental qua assumptions, giữ learned clauses giữa các lần gọi \texttt{solve}.
+
+\subsection{Tầng 2: Incremental MaxSAT (RC2)}
+\label{sec:incr-maxsat}
+
+\textbf{Câu hỏi:} Có nên \emph{giữ lại trạng thái RC2} (total\_cost, soft\_constraints, Totalizers) giữa các DDD iteration?
+
+\begin{itemize}
+  \item \textbf{Incremental MaxSAT} (hiện tại): Trạng thái RC2 (bao gồm total\_cost, HashMap soft\_constraints, các Totalizer đã tạo) được giữ nguyên qua các DDD iteration. Khi DDD thêm clauses mới (H2, H3 từ conflicts), RC2 \emph{tiếp tục} từ trạng thái hiện tại.
+
+  \item \textbf{Non-Incremental MaxSAT}: Reset toàn bộ trạng thái RC2 tại mỗi DDD iteration: tạo lại soft\_constraints từ đầu, xóa Totalizers cũ, đặt total\_cost $= 0$. RC2 giải lại bài toán MaxSAT từ đầu với tập clauses mới.
+\end{itemize}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\toprule
+\textbf{Tiêu chí} & \textbf{Incremental MaxSAT} & \textbf{Non-Incremental MaxSAT} \\
+\midrule
+RC2 state & Giữ qua DDD iters & Reset mỗi DDD iter \\
+Totalizers & Tích lũy & Tạo mới \\
+total\_cost & Tăng dần & Bắt đầu từ 0 \\
+Số SAT calls/iter & Ít (warm start) & Nhiều (giải lại từ đầu) \\
+LB quality & Monotone tăng & Có thể dao động \\
+\bottomrule
+\end{tabular}
+\caption{Incremental vs Non-Incremental ở tầng \textbf{MaxSAT (RC2)}}
+\end{table}
+
+\subsection{Ma trận 4 cấu hình}
+
+Kết hợp hai tầng tạo ra \textbf{4 cấu hình} có thể thử nghiệm:
+
+\begin{table}[h]
+\centering
+\begin{tabular}{c|c|c|}
+\cline{2-3}
+ & \textbf{Incremental SAT} & \textbf{Non-Incremental SAT} \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Incremental MaxSAT}} & \cellcolor{blue!10} A: Hiện tại & B \\
+\hline
+\multicolumn{1}{|c|}{\textbf{Non-Incremental MaxSAT}} & C & D \\
+\hline
+\end{tabular}
+\caption{4 cấu hình kết hợp hai tầng incremental}
+\end{table}
+
+\subsubsection{Cấu hình A: Incremental SAT $+$ Incremental MaxSAT (hiện tại)}
+
+\begin{itemize}
+  \item Một SAT solver duy nhất, tồn tại xuyên suốt.
+  \item RC2 state giữ nguyên qua các DDD iteration.
+  \item Ưu: nhanh nhất về overhead, giữ learned clauses + Totalizers.
+  \item Nhược: clause database rất lớn, Totalizers cũ có thể không còn liên quan.
+\end{itemize}
+
+\subsubsection{Cấu hình B: Non-Incremental SAT $+$ Incremental MaxSAT}
+
+\begin{itemize}
+  \item Tạo SAT solver mới cho mỗi SAT call (hoặc mỗi DDD iteration).
+  \item RC2 state (soft\_constraints, Totalizers, total\_cost) vẫn giữ, nhưng phải add lại tất cả hard clauses + Totalizer clauses vào solver mới.
+  \item Ưu: preprocessing fresh, không tích lũy learned clauses stale.
+  \item Nhược: chi phí rebuild cao, mất warm start.
+\end{itemize}
+
+\begin{algorithm}[H]
+\caption{Cấu hình B: Non-Incremental SAT $+$ Incremental MaxSAT}
+\begin{algorithmic}[1]
+\State clause\_store $\gets$ [] \Comment{lưu tất cả clauses bên ngoài solver}
+\State rc2\_state $\gets$ \Call{InitRC2}{} \Comment{giữ xuyên suốt}
+\Loop \Comment{DDD iteration}
+  \State Thêm conflict clauses mới vào clause\_store
+  \Loop \Comment{RC2 loop}
+    \State \textbf{solver} $\gets$ \Call{NewSATSolver}{} \Comment{tạo mới mỗi SAT call}
+    \ForAll{clause $c \in$ clause\_store}
+      solver.add\_clause($c$)
+    \EndFor
+    \State result $\gets$ solver.solve\_with\_assumptions(rc2\_state.soft\_lits)
+    \State Xử lý result, cập nhật rc2\_state
+    \State Nếu SAT: \textbf{break}
+  \EndLoop
+\EndLoop
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Cấu hình C: Incremental SAT $+$ Non-Incremental MaxSAT}
+
+\begin{itemize}
+  \item Một SAT solver duy nhất, giữ tất cả clauses.
+  \item RC2 state được \emph{reset} mỗi DDD iteration: xóa soft\_constraints, đặt total\_cost $= 0$.
+  \item Tuy nhiên, Totalizer clauses đã thêm vào SAT solver \emph{không thể xóa} (vì SAT solver là incremental) --- cần dùng activation literals để ``tắt'' chúng.
+  \item Ưu: RC2 sạch sẽ mỗi iteration, SAT solver giữ learned clauses.
+  \item Nhược: phức tạp, cần activation literals cho Totalizer clauses.
+\end{itemize}
+
+\begin{algorithm}[H]
+\caption{Cấu hình C: Incremental SAT $+$ Non-Incremental MaxSAT}
+\begin{algorithmic}[1]
+\State solver $\gets$ \Call{NewSATSolver}{} \Comment{tạo 1 lần duy nhất}
+\Loop \Comment{DDD iteration}
+  \State solver.add\_clause(conflict clauses mới) \Comment{accumulative}
+  \State Tắt Totalizer clauses cũ (qua activation literals)
+  \State rc2\_state $\gets$ \Call{InitRC2}{} \Comment{reset mỗi DDD iter}
+  \Loop \Comment{RC2 loop --- giải lại từ đầu}
+    \State result $\gets$ solver.solve\_with\_assumptions(rc2\_state.soft\_lits)
+    \State Xử lý result, có thể thêm Totalizer clauses mới
+    \State Nếu SAT: \textbf{break}
+  \EndLoop
+\EndLoop
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Cấu hình D: Non-Incremental SAT $+$ Non-Incremental MaxSAT}
+
+\begin{itemize}
+  \item Tạo SAT solver mới mỗi lần.
+  \item RC2 state cũng reset mỗi DDD iteration.
+  \item Ưu: đơn giản nhất, sạch sẽ nhất, preprocessing mạnh.
+  \item Nhược: chi phí cao nhất, phải giải lại mọi thứ từ đầu.
+\end{itemize}
+
+\subsection{Tổng hợp so sánh}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Tiêu chí} & \textbf{A (hiện tại)} & \textbf{B} & \textbf{C} & \textbf{D} \\
+\midrule
+SAT incremental & Có & Không & Có & Không \\
+MaxSAT incremental & Có & Có & Không & Không \\
+\midrule
+Learned clauses & Giữ tất cả & Mất mỗi call & Giữ tất cả & Mất mỗi call \\
+Totalizer state & Giữ & Giữ (rebuild) & Reset & Reset \\
+Rebuild cost/iter & 0 & $O(|H|)$ & 0 & $O(|H|)$ \\
+SAT calls/DDD iter & Ít & Ít & Nhiều & Nhiều \\
+Preprocessing & 1 lần & Mỗi call & 1 lần & Mỗi call \\
+Complexity & Thấp & Trung bình & Cao & Trung bình \\
+\bottomrule
+\end{tabular}
+\caption{So sánh 4 cấu hình kết hợp SAT $\times$ MaxSAT incrementality}
+\end{table}
+
+\subsection{Đề xuất thực nghiệm}
+
+Thứ tự ưu tiên thử nghiệm:
+\begin{enumerate}
+  \item \textbf{A} (baseline): cấu hình hiện tại, thiết lập reference.
+
+  \item \textbf{B} (Non-Incr SAT $+$ Incr MaxSAT): thay đổi nhỏ nhất --- chỉ cần tạo solver mới tại mỗi DDD iteration (hoặc mỗi SAT call), add lại clauses. RC2 state giữ nguyên. Cho phép đánh giá ảnh hưởng của learned clauses.
+
+  \item \textbf{C} (Incr SAT $+$ Non-Incr MaxSAT): cần activation literals để tắt Totalizer cũ. Đánh giá xem RC2 state có bị ``pollution'' qua các DDD iteration không.
+
+  \item \textbf{D}: baseline cho ``giải lại hoàn toàn mỗi iteration''.
+\end{enumerate}
+
+Metrics:
+\begin{itemize}
+  \item Tổng thời gian giải, thời gian mỗi SAT call (trung bình/max).
+  \item Số SAT calls (tổng và trong mỗi DDD iteration).
+  \item Kích thước clause database tại mỗi iteration.
+  \item Chất lượng lower bound qua các iteration.
+\end{itemize}
+
+
+% ================================================================
+\section{So sánh hai biến thể encoding}
+% ================================================================
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\toprule
+\textbf{Tiêu chí} & \textbf{One-Hot} & \textbf{Ladder (chính)} \\
+\midrule
+File & \texttt{maxsat\_ddd.rs} & \texttt{maxsatddd\_ladder.rs} \\
+Biến/visit & $|\Lambda^{ir}|$ biến & $|\Lambda^{ir}|$ biến \\
+Clause thêm 1 interval & $O(n)$ (AMO pairwise) & $O(1)$ (2 hard clause) \\
+Exactly-one & Cần explicit & Implicit từ chuỗi monotone \\
+Incompatibility & Binary clause (\textcolor{blue}{hard}) & 4-literal clause (\textcolor{blue}{hard}) \\
+Incremental & Tốn kém & \textbf{Hiệu quả} \\
+SAT solver & MaxSatSolver trait & SatSolverWithCore trait \\
+\bottomrule
+\end{tabular}
+\caption{So sánh hai biến thể encoding}
+\end{table}
+
+
+% ================================================================
+\section{Biến đổi sang MaxSAT Binary --- Tối ưu bound lớn}
+\label{sec:binary-maxsat}
+% ================================================================
+
+\subsection{Vấn đề với encoding hiện tại}
+
+Trong mô hình hiện tại, CostTree sử dụng \textbf{encoding đơn nguyên (unary)} cho chi phí:
+\begin{itemize}
+  \item Mỗi mức chi phí $c$ có một biến $y_c$ và soft clause $\overline{y_c}$ với weight $= \Delta c$.
+  \item Với \texttt{FiniteSteps123} (cost $\in \{0,1,2,3\}$): chỉ 3 soft clauses/visit --- \textbf{không vấn đề}.
+  \item Với \texttt{InfiniteSteps180} (cost $= \lceil d/180 \rceil$): cost lên đến 30--60 $\to$ 30--60 soft clauses/visit.
+  \item Với \texttt{Continuous} (cost $= d$ giây): cost lên đến hàng nghìn $\to$ hàng nghìn soft clauses/visit.
+\end{itemize}
+
+\paragraph{Hệ quả cho RC2.} RC2 tìm UNSAT core và tăng lower bound bằng $w_{\min}$ của core. Với encoding unary (tất cả weight $= 1$), mỗi core chỉ tăng LB thêm 1. Ví dụ thực nghiệm (Instance A2, InfiniteSteps180):
+\[
+\text{LB} = 1, 2, 3, \ldots, 37 \qquad \text{(37 UNSAT core iterations)}
+\]
+
+Mỗi core iteration cần một SAT call $\Rightarrow$ tổng chi phí tỉ lệ thuận với $\text{OPT}$.
+
+\subsection{Ý tưởng: Binary Cost Encoding}
+
+Thay vì biểu diễn chi phí đơn nguyên, sử dụng \textbf{biểu diễn nhị phân}. Với chi phí tối đa $C$, chỉ cần $K = \lceil \log_2(C+1) \rceil$ biến:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Cost type} & \textbf{Unary (hiện tại)} & \textbf{Binary (đề xuất)} \\
+\midrule
+FiniteSteps123 (max=3) & 3 soft/visit & 2 soft/visit \\
+InfiniteSteps180 (max$\approx$60) & 60 soft/visit & 6 soft/visit \\
+InfiniteSteps60 (max$\approx$180) & 180 soft/visit & 8 soft/visit \\
+Continuous (max$\approx$3600) & 3600 soft/visit & 12 soft/visit \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Encoding nhị phân chi tiết}
+
+Cho mỗi visit $(i,r)$:
+
+\paragraph{Bước 1: Biến nhị phân.} Tạo $K$ biến $b_0^{ir}, b_1^{ir}, \ldots, b_{K-1}^{ir}$ với $b_k$ biểu diễn bit thứ $k$ của cost.
+
+\paragraph{Bước 2: Soft clauses (S1').} Thay vì $C$ soft clauses đơn nguyên, chỉ thêm $K$ soft clauses:
+\begin{softbox}
+$(\overline{b_k^{ir}}, \; w = 2^k)$ \quad cho $k = 0, 1, \ldots, K-1$.
+\end{softbox}
+\emph{Ý nghĩa:} ``không muốn bit $k$ của cost bằng 1'' với weight $2^k$.
+
+\paragraph{Bước 3: Hard clauses liên kết delay $\to$ cost bits.} Khi thêm time point $t$ với cost $c$, cần encode: ``nếu tàu delay đến $t$, thì cost $\geq c$''. Với biểu diễn nhị phân, ta cần:
+
+\subparagraph{Cách 1: Giữ biến unary $y_c$ nội bộ, liên kết sang binary.}
+
+Giữ nguyên CostTree tạo các biến $y_c$ unary nhưng \textbf{không tạo soft clause cho $y_c$}. Thay vào đó, liên kết:
+\begin{hardbox}
+$y_c \Rightarrow b_k$ \quad cho mỗi bit $k$ mà $c$ có bit thứ $k$ bằng 1.
+\end{hardbox}
+
+Với cách này:
+\begin{itemize}
+  \item Hard clauses H4 ($\overline{d_t} \vee y_c$) và H5 ($y_{c'} \Rightarrow y_c$) giữ nguyên.
+  \item Soft clauses S1 thay bằng S1': $\overline{b_k}$ weight $2^k$.
+  \item Thêm hard clause: $\overline{y_c} \vee b_k$ cho mỗi $k$ mà bit $k$ của $c$ bằng 1.
+\end{itemize}
+
+\textbf{Vấn đề:} encoding này \emph{không chính xác} vì $b_k$ là bit, không phải ngưỡng. Nếu cost = 5 (binary 101), việc $b_0 = 1$ chỉ có nghĩa ``cost có bit 0'', không phải ``cost $\geq 1$''. Cần phân tích kỹ hơn.
+
+\subparagraph{Cách 2: Binary encoding trực tiếp cho tổng cost.}
+
+Encode tổng cost toàn cục $\sum_{i,r} c^{ir}$ bằng binary, thay vì encode per-visit.
+
+\begin{enumerate}
+  \item Mỗi visit vẫn dùng unary $y_c$ theo CostTree hiện tại.
+  \item Thay vì soft clause $\overline{y_c}$ weight $\Delta c$, sử dụng \textbf{adder circuit} (Pseudo-Boolean to CNF):
+  \begin{itemize}
+    \item Tổng hợp tất cả cost variables thành biểu diễn binary: $\sum_{\text{visit}} \text{cost}^{\text{visit}} = (B_{K-1}, \ldots, B_0)_2$.
+    \item Soft clauses trên các bit tổng: $\overline{B_k}$ weight $2^k$.
+  \end{itemize}
+\end{enumerate}
+
+Đây thực chất là encoding \textbf{Pseudo-Boolean (PB) constraint} trên hàm mục tiêu.
+
+\subparagraph{Cách 3: Weight stratification cải tiến trong RC2.}
+
+Thay vì thay đổi encoding, thay đổi \textbf{cách RC2 xử lý weight}:
+
+\begin{itemize}
+  \item \textbf{Weight stratification nhị phân:} Thay vì xử lý weight $w$ bằng cách trừ $w_{\min}$ (có thể $= 1$), nhóm soft clauses theo lũy thừa 2 và xử lý từ nhóm cao nhất.
+  \item Cụ thể: mỗi soft clause $(\overline{y_c}, w)$ được thay bằng $\lfloor \log_2 w \rfloor + 1$ copies:
+    \[
+    (\overline{y_c^{(k)}}, 2^k) \quad \text{cho mỗi bit } k \text{ mà } w \text{ có bit } k = 1
+    \]
+    với hard clause $y_c^{(k)} \Leftrightarrow y_c$ (dùng cùng literal, chỉ tách weight).
+  \item Với encoding hiện tại (weight $\Delta c = 1$ cho mỗi mức cost), cách này \textbf{không giúp gì} vì weight đã là 1.
+\end{itemize}
+
+\subsection{Cách tiếp cận khả thi nhất: Binary CostTree}
+
+Thay đổi CostTree để sử dụng ngưỡng nhị phân thay vì đơn nguyên:
+
+\begin{enumerate}
+  \item Thay vì tạo biến $y_c$ cho mỗi mức cost $c = 1, 2, 3, \ldots$, tạo biến cho ngưỡng lũy thừa 2:
+  \[
+  y_1^{ir},\; y_2^{ir},\; y_4^{ir},\; y_8^{ir},\; \ldots,\; y_{2^{K-1}}^{ir}
+  \]
+  với $y_{2^k} = 1$ iff cost $\geq 2^k$.
+
+  \item Soft clauses:
+  \begin{softbox}
+  $(\overline{y_{2^k}^{ir}}, \; w = 2^k)$ \quad cho $k = 0, 1, \ldots, K-1$.
+  \end{softbox}
+
+  \item Hard clauses: khi thêm time point $t$ với cost $c$:
+  \begin{hardbox}
+  $\overline{d_t^{ir}} \vee y_{2^k}^{ir}$ \quad cho mỗi $k$ sao cho $2^k \leq c$.
+  \end{hardbox}
+  \emph{Ý nghĩa:} delay đến $t$ implies cost $\geq 2^k$ cho tất cả $2^k \leq c$.
+
+  \item Chain ordering:
+  \begin{hardbox}
+  $\overline{y_{2^{k+1}}^{ir}} \vee y_{2^k}^{ir}$ \quad (cost $\geq 2^{k+1}$ implies cost $\geq 2^k$).
+  \end{hardbox}
+\end{enumerate}
+
+\paragraph{Ví dụ.} Cost $c = 5$ (binary $101$):
+\begin{itemize}
+  \item $c \geq 1$ ($2^0$): $\overline{d_t} \vee y_1$ $\checkmark$
+  \item $c \geq 2$ ($2^1$): $\overline{d_t} \vee y_2$ $\checkmark$
+  \item $c \geq 4$ ($2^2$): $\overline{d_t} \vee y_4$ $\checkmark$
+\end{itemize}
+Soft clauses $\overline{y_1}$ (weight 1), $\overline{y_2}$ (weight 2), $\overline{y_4}$ (weight 4). Nếu cả 3 bị vi phạm: cost tối thiểu $= 1 + 2 + 4 = 7 \geq 5$. Đây là \emph{over-approximation} nhưng vẫn đúng vì cost thực sự $\geq 5$, và MaxSAT sẽ tối thiểu hóa tổng weight bị vi phạm.
+
+\paragraph{Tính đúng đắn.} Encoding binary là một \textbf{relaxation}: giá trị cost được ``làm tròn lên'' thành tổng các lũy thừa 2. Cụ thể:
+\begin{itemize}
+  \item Nếu cost thực $= c$, thì encoding binary enforce rằng tổng weight vi phạm $\geq c$ (vì $c \leq \sum_{k: 2^k \leq c} 2^k = 2^{\lfloor \log_2 c \rfloor + 1} - 1$).
+  \item Solver sẽ tìm assignment tối ưu trên binary encoding, LB vẫn hợp lệ.
+  \item Tuy nhiên, cost tối ưu trên binary encoding \emph{có thể lớn hơn} cost tối ưu thực --- đây là over-estimation.
+\end{itemize}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Visit cost} & \textbf{Unary exact} & \textbf{Binary approx} & \textbf{Sai số} \\
+\midrule
+$c = 1$ & 1 & $1$ & 0 \\
+$c = 2$ & 2 & $1+2 = 3$ & $+1$ \\
+$c = 3$ & 3 & $1+2 = 3$ & 0 \\
+$c = 5$ & 5 & $1+2+4 = 7$ & $+2$ \\
+$c = 10$ & 10 & $1+2+4+8 = 15$ & $+5$ \\
+\bottomrule
+\end{tabular}
+\caption{So sánh cost chính xác vs binary approximation}
+\end{table}
+
+\paragraph{Giải pháp cho over-estimation.} Để tránh sai số, có thể dùng \textbf{Mixed Binary-Unary} encoding:
+\begin{enumerate}
+  \item Với cost thấp ($c \leq T$): dùng unary (chính xác).
+  \item Với cost cao ($c > T$): dùng binary (xấp xỉ, nhưng ít soft clauses).
+  \item Ngưỡng $T$ chọn sao cho unary part có $\leq T$ soft clauses.
+\end{enumerate}
+
+Hoặc sử dụng \textbf{Generalized Totalizer Encoding (GTE)} cho PB constraints, encode chính xác hàm mục tiêu bằng biểu diễn nhị phân mà không mất chính xác.
+
+\subsection{Tác động lên RC2}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lccc}
+\toprule
+ & \textbf{Unary (hiện tại)} & \textbf{Binary} & \textbf{Mixed} \\
+\midrule
+Soft clauses/visit & $C$ & $\log_2 C$ & $T + \log_2(C/T)$ \\
+Min weight & 1 & 1 & 1 \\
+Max weight & $\Delta c_{\max}$ & $2^{K-1}$ & $2^{K-1}$ \\
+RC2 cores cho OPT=$N$ & $\geq N$ & $O(\log N)$ & $O(T + \log N)$ \\
+Chính xác & Có & Xấp xỉ & Có (nếu GTE) \\
+\bottomrule
+\end{tabular}
+\caption{So sánh tác động lên RC2}
+\end{table}
+
+\paragraph{Lợi ích chính.} Với InfiniteSteps180, Instance A2 (cost tối ưu = 37):
+\begin{itemize}
+  \item Unary: 37 RC2 core iterations (mỗi lần $+1$).
+  \item Binary: $\approx 6$ RC2 core iterations (weight $32, 4, 1$ $\Rightarrow$ LB jumps lớn hơn).
+\end{itemize}
+
+Weight stratification trong RC2 tự động ưu tiên soft clauses có weight cao $\Rightarrow$ xử lý bit cao trước, tăng LB nhanh hơn.
+
+
+% ================================================================
+\section{Thay thế MaxSAT bằng Incremental SAT + SCPB}
+\label{sec:sat-scpb}
+% ================================================================
+
+\subsection{Tại sao không dùng Totalizer?}
+
+\paragraph{Hàm mục tiêu là PB constraint, không phải Cardinality.}
+Trong mô hình hiện tại, CostTree tạo soft clauses $(\overline{y_c^{ir}}, w)$ trong đó weight $w = \Delta c$ là hiệu cost giữa các mức liên tiếp. Cụ thể:
+
+\begin{itemize}
+  \item \textbf{Chế độ linear} (CostTree, khi $\text{dist\_prev} < 10$): mỗi mức cost tạo 1 biến, $\Delta c = 1$ $\to$ weight $= 1$ (cardinality).
+  \item \textbf{Chế độ tree} (CostTree, khi $\text{dist\_prev} \geq 10$): jump qua nhiều mức, $\Delta c > 1$ $\to$ weight $> 1$ (\textbf{PB constraint}).
+\end{itemize}
+
+Bài báo gốc cũng xác nhận: hàm mục tiêu $\min \sum_{i \in N} w_i x_i$ với $w_i$ thay đổi tùy cost type. Bài báo nhận xét: \emph{``When weights vary a lot... representing this trade-off exactly as SAT constraints is computationally expensive.''}
+
+\begin{center}
+\fbox{%
+\parbox{0.85\textwidth}{%
+\textbf{Kết luận:} Hàm mục tiêu là \textbf{Pseudo-Boolean constraint} $\sum w_i X_i \leq k$ với $w_i \geq 1$.
+Totalizer chỉ hỗ trợ cardinality ($w_i = 1$). $\Rightarrow$ Phải dùng \textbf{SCPB (Sequential Counter for PB)}.
+}}
+\end{center}
+
+\subsection{SCPB Encoding}
+
+Cho $n$ biến cost $X_1, \ldots, X_n$ với trọng số $w_1, \ldots, w_n$, SCPB sử dụng \textbf{biến đếm nhị phân} $R_1, \ldots, R_{n-1}$:
+\begin{itemize}
+  \item $R_i$ gồm $\text{pos}_i = \min(k, \sum_{j=1}^{i} w_j)$ bits: $\{R_{i,1}, R_{i,2}, \ldots, R_{i,\text{pos}_i}\}$.
+  \item \textbf{Ngữ nghĩa:} Khi $\sum_{j=1}^{i} w_j X_j = p$, thì đúng $p$ bits đầu tiên của $R_i$ có giá trị 1.
+\end{itemize}
+
+\paragraph{Các công thức encoding.}
+\begin{flalign*}
+    & & \bigwedge_{i=1}^{n-1} \bigwedge_{j=1}^{w_i} X_i \longrightarrow R_{i,j}  && (1)\\
+    & & \bigwedge_{i=2}^{n-1} \bigwedge_{j=1}^{\text{pos}_{i-1}} R_{i-1,j} \longrightarrow R_{i,j}   && (2)\\
+   & & \bigwedge_{i=2}^{n-1} \bigwedge_{j=1}^{\text{pos}_{i-1}} X_i \wedge R_{i-1,j} \longrightarrow R_{i,j+w_i}  && (3)\\
+   & & \bigwedge_{i=2}^{n-1} \bigwedge_{j=1}^{\text{pos}_{i-1}} \neg X_i \wedge \neg R_{i-1,j} \longrightarrow \neg R_{i,j}  && (4)\\
+    &\text{(khi $\text{pos}_{i-1} < k$)}& \bigwedge_{i=1}^{n-1} \bigwedge_{j=1+\text{pos}_{i-1}}^{\text{pos}_i} \neg X_i \longrightarrow \neg R_{i,j}  && (5)\\
+    & & \bigwedge_{i=2}^{n-1} \bigwedge_{j=1}^{\text{pos}_{i-1}} \neg R_{i-1,j} \longrightarrow \neg R_{i,j+w_i}  && (6)
+\end{flalign*}
+
+\paragraph{AMK encoding ($\sum w_i X_i \leq k$).} Thêm công thức (8):
+\begin{flalign*}
+&& \bigwedge_{i=2}^{n} X_i \longrightarrow \neg R_{i-1,k+1-w_i} && (8)
+\end{flalign*}
+
+\subsection{Điều khiển bound qua Assumptions}
+
+\textbf{Key insight:} Biến $R_{n-1,k}$ encode trực tiếp ``$\sum_{j=1}^{n-1} w_j X_j \geq k$'':
+
+\begin{hardbox}
+\begin{itemize}
+  \item Enforce $\sum w_i X_i \leq k$: thêm \textbf{assumption} $\overline{R_{n-1,k+1}}$ khi gọi SAT solver.
+  \item Enforce $\sum w_i X_i \geq k$: thêm assumption $R_{n-1,k}$.
+  \item Enforce $\sum w_i X_i \in [u, v]$: assumptions $R_{n-1,u}$ và $\overline{R_{n-1,v+1}}$.
+\end{itemize}
+\end{hardbox}
+
+\textbf{Thay đổi bound $k \to k'$ chỉ cần đổi assumption}, không thêm/xóa clause nào.
+
+So sánh với Totalizer (chỉ hỗ trợ cardinality):
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+ & \textbf{Totalizer} & \textbf{SCPB} \\
+\midrule
+Hỗ trợ weights & Không ($w_i = 1$) & \textbf{Có} ($w_i \geq 1$) \\
+Variables & $O(n \log n)$ & $O(nk)$ \\
+Tăng bound & Thêm clauses & \textbf{Chỉ đổi assumption} \\
+Giảm bound & Không thể & \textbf{Chỉ đổi assumption} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Áp dụng cho hàm mục tiêu}
+
+\paragraph{Bước 1: Thu thập cost literals.} Gọi $\mathcal{Y} = \{(y_c^{ir}, w_c^{ir})\}$ là tập tất cả cost literals với trọng số tương ứng:
+\begin{itemize}
+  \item $y_c^{ir}$ = biến cost cho visit $(i,r)$ tại mức $c$ (từ CostTree).
+  \item $w_c^{ir} = \Delta c$ = hiệu cost giữa mức $c$ và mức cost thấp hơn kế tiếp.
+\end{itemize}
+
+Hàm mục tiêu: $\min \sum_{(y, w) \in \mathcal{Y}} w \cdot y$.
+
+\paragraph{Bước 2: Tạo SCPB.}
+\[
+\text{SCPB}(\{y_c^{ir}\}, \{w_c^{ir}\}, k_{\max})
+\]
+
+Tạo biến đếm $R_1, \ldots, R_{|\mathcal{Y}|-1}$, mỗi $R_i$ có tối đa $k_{\max}$ bits. Thêm các clauses (1)--(6) vào SAT solver.
+
+\paragraph{Bước 3: Tìm optimal bằng binary search.}
+
+\begin{algorithm}[H]
+\caption{SAT + SCPB: Binary Search}
+\begin{algorithmic}[1]
+\State $\mathcal{Y} \gets$ tập cost literals $\{(y_c^{ir}, w_c^{ir})\}$
+\State Tạo SCPB từ $\mathcal{Y}$ với $k_{\max}$ = UB (từ heuristic)
+\State $lo \gets 0$, $hi \gets$ UB
+\While{$lo < hi$}
+  \State $k \gets (lo + hi) / 2$
+  \State result $\gets$ solver.solve\_with\_assumptions($\overline{R_{n-1,k+1}}$)
+  \If{SAT}
+    \State $hi \gets$ cost thực tế từ model
+  \Else
+    \State $lo \gets k + 1$
+  \EndIf
+\EndWhile
+\State \Return $lo$
+\end{algorithmic}
+\end{algorithm}
+
+\textbf{Số SAT calls} = $O(\log(\text{UB} - \text{LB}))$. So với RC2 cần $O(\text{OPT})$ calls.
+
+\paragraph{SAT-UNSAT Search (từ trên xuống).} Nếu có UB tốt từ heuristic:
+\begin{enumerate}
+  \item Bắt đầu với $k = \text{UB}$.
+  \item Gọi SAT với assumption $\overline{R_{n-1,k}}$ (tức $\sum \leq k-1$).
+  \item Nếu SAT: $k \gets$ cost thực từ model, tiếp tục.
+  \item Nếu UNSAT: $k$ là optimal.
+\end{enumerate}
+
+\subsection{Tích hợp với DDD}
+
+\begin{algorithm}[H]
+\caption{DDD + SAT + SCPB (thay thế RC2)}
+\begin{algorithmic}[1]
+\State solver $\gets$ SAT solver mới
+\State $\mathcal{Y} \gets \emptyset$ \Comment{tập cost literals, mở rộng dần}
+\State scpb $\gets$ None
+\Loop \Comment{DDD iteration}
+  \If{SAT ở iteration trước}
+    \State Phát hiện conflicts $\to$ thêm hard clauses H1--H3
+    \If{không conflict} \Return optimal \EndIf
+  \EndIf
+  \State \textbf{Thêm time points mới:}
+  \ForAll{time point mới $t$ cho visit $(i,r)$ với cost $c > 0$}
+    \State Thêm hard H4: $\overline{d_t} \vee y_c$
+    \State Thêm hard H5: $y_{c'} \Rightarrow y_c$
+    \If{$y_c$ mới}
+      \State $\mathcal{Y} \gets \mathcal{Y} \cup \{(y_c, w_c)\}$
+      \State \textcolor{blue}{scpb.extend($y_c$, $w_c$)} \Comment{mở rộng SCPB}
+    \EndIf
+  \EndFor
+  \State \textbf{Tìm $k$ tối ưu:} binary search trên $k$ với assumption $\overline{R_{n-1,k+1}}$
+\EndLoop
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Mở rộng SCPB incrementally.} Khi DDD thêm time point mới $\to$ cost literal mới $(y_c, w_c)$ $\to$ cần thêm input vào SCPB:
+
+\begin{enumerate}
+  \item \textbf{Thêm input mới $X_{n+1}$ với weight $w_{n+1}$:}
+  \begin{itemize}
+    \item Tạo biến đếm mới $R_n$ với $\text{pos}_n = \min(k, \text{pos}_{n-1} + w_{n+1})$ bits.
+    \item Thêm clauses (1)--(3) cho $i = n$:
+    \begin{itemize}
+      \item (1): $X_{n+1} \Rightarrow R_{n,j}$ cho $j \in [1, w_{n+1}]$.
+      \item (2): $R_{n-1,j} \Rightarrow R_{n,j}$ cho $j \in [1, \text{pos}_{n-1}]$.
+      \item (3): $X_{n+1} \wedge R_{n-1,j} \Rightarrow R_{n,j+w_{n+1}}$.
+    \end{itemize}
+    \item Thêm clause (8) cho AMK: $X_{n+1} \Rightarrow \overline{R_{n-1,k+1-w_{n+1}}}$.
+  \end{itemize}
+
+  \item \textbf{Cập nhật assumption:} $\overline{R_{n,k+1}}$ thay vì $\overline{R_{n-1,k+1}}$ (dùng biến đếm mới nhất).
+
+  \item \textbf{Số clauses thêm mới}: $O(\text{pos}_{n-1})$ cho mỗi input mới, cấu trúc tuần tự thuận lợi cho incremental.
+\end{enumerate}
+
+\subsection{Hybrid SCPB ($\text{SCPB}^h$)}
+
+Giá trị $k$ ảnh hưởng số bits của $R_i$. Khi $k$ lớn (gần $\text{totalW} = \sum w_i$), normalize bằng cách đảo:
+
+\[
+\text{SCPB}^h_{\leq k} \equiv
+\begin{cases}
+\text{SCPB}_{\leq k} & \text{nếu } k \text{ nhỏ (so với totalW)},\\
+\text{SCPB}_{\geq (n-k)} \text{ (trên } \neg X) & \text{nếu } k \text{ lớn (gần totalW)}.
+\end{cases}
+\]
+
+Ví dụ: $3X_1 + 5X_2 + 7X_3 + 2X_4 + 6X_5 + 4X_6 \geq 22$ ($\text{totalW} = 27$) $\equiv$ $3\overline{X_1} + 5\overline{X_2} + 7\overline{X_3} + 2\overline{X_4} + 6\overline{X_5} + 4\overline{X_6} \leq 5$. Mỗi $R_i$ cần 5 bits thay vì 22 bits.
+
+\subsection{So sánh RC2 vs SAT + SCPB}
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabular}{lcc}
+\toprule
+\textbf{Tiêu chí} & \textbf{RC2 (hiện tại)} & \textbf{SAT + SCPB} \\
+\midrule
+Loại solver & MaxSAT (core-guided) & Pure SAT \\
+Hỗ trợ PB & Gián tiếp (weight trong soft) & \textbf{Trực tiếp} (encoding PB) \\
+Tìm optimal & UNSAT cores, LB $+= w_{\min}$ & Binary search trên $k$ \\
+\midrule
+SAT calls (unit w) & $= \text{OPT}$ & $O(\log \text{OPT})$ (binary search) \\
+SAT calls (có UB) & $= \text{OPT} - \text{LB}_0$ & $O(\log(\text{UB}-\text{LB}))$ \\
+Thay đổi bound & Thêm clauses & \textbf{Đổi assumption} \\
+\midrule
+Encoding overhead & Totalizer/core (nhỏ) & SCPB: $O(nk)$ biến/clauses \\
+Learned clauses & Giữ qua iterations & Giữ qua iterations \\
+DDD refinement & Thêm soft clause & Thêm $R_n$, $O(\text{pos})$ clauses \\
+\midrule
+Khó khăn chính & Nhiều cores nếu OPT lớn & SCPB lớn ($n \times k$ biến) \\
+ & Weights khác nhau $\to$ chậm & Cần biết $k_{\max}$ trước \\
+\bottomrule
+\end{tabular}
+\caption{So sánh RC2 vs SAT + SCPB}
+\end{table}
+
+\paragraph{Khi nào SAT + SCPB tốt hơn:}
+\begin{itemize}
+  \item \textbf{OPT lớn} (InfiniteSteps, Continuous): binary search = $O(\log \text{OPT})$ vs RC2 = $O(\text{OPT})$.
+  \item \textbf{Có UB tốt} từ heuristic: search space nhỏ $\to$ rất ít SAT calls.
+  \item \textbf{Weights khác nhau}: SCPB xử lý trực tiếp, RC2 gặp khó khăn.
+  \item \textbf{DDD refinement}: thêm input $O(\text{pos})$ clauses, giữ learned clauses.
+\end{itemize}
+
+\paragraph{Khi nào RC2 tốt hơn:}
+\begin{itemize}
+  \item \textbf{OPT nhỏ} (Stepwise): RC2 chỉ cần vài cores, SCPB overhead lớn hơn.
+  \item Không biết UB trước (SCPB cần $k_{\max}$ để tạo encoding).
+  \item $n \times k$ quá lớn (quá nhiều biến counter $R$).
+\end{itemize}
+
+\subsection{Generalized Totalizer Encoding (GTE)}
+\label{sec:gte}
+
+SCPB (Mục trước) sử dụng sequential counter --- encoding tuần tự với $O(nk)$ biến phụ. Một phương pháp thay thế hiệu quả hơn là \textbf{Generalized Totalizer Encoding} (GTE)~\cite{joshi2015gte}, mở rộng Totalizer cho PB constraints.
+
+\paragraph{Ý tưởng GTE.}
+Totalizer chuẩn xây dựng cây nhị phân cho $n$ inputs, mỗi node tổng hợp cardinality ($w_i = 1$). GTE tổng quát hóa:
+\begin{itemize}
+  \item Mỗi lá có trọng số $w_i \geq 1$.
+  \item Mỗi node nội bộ tổng hợp \textbf{weighted sum} của hai con.
+  \item Output variables tại root encode các mức ``$\sum w_i X_i \geq v$'' cho từng giá trị $v$ khả thi.
+\end{itemize}
+
+\paragraph{So sánh encoding.}
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+ & \textbf{SCPB} & \textbf{GTE} & \textbf{DPW} \\
+\midrule
+Cấu trúc & Tuần tự (chain) & Cây nhị phân & Watchdog \\
+Biến phụ & $O(nk)$ & $O(n \log n \cdot W)$ & $O(n \log^2 n)$ \\
+Clauses & $O(nk)$ & \textbf{Ít hơn} (lazy) & $O(n \log^2 n)$ \\
+Incremental add & Có & \textbf{Có} & Có \\
+Incremental bound & Assumption & \textbf{Assumption} & Assumption \\
+Lazy encoding & Không & \textbf{Có} & Có \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+($W$ = max weight; DPW = Dynamic Poly Watchdog, một phương pháp thay thế khác.)
+
+\paragraph{API (RustSAT).}
+Thư viện \texttt{rustsat} (Rust) cung cấp \texttt{GeneralizedTotalizer} với API incremental:
+
+\begin{enumerate}
+  \item \textbf{Tạo:} \texttt{let mut gte = GeneralizedTotalizer::from(lits\_weights);}
+  
+  \texttt{lits\_weights}: \texttt{HashMap<Lit, usize>} --- mapping literal $\to$ weight.
+  
+  \item \textbf{Thêm input incremental:} \texttt{gte.extend([(new\_lit, weight)]);}
+  
+  Tương ứng DDD thêm time point mới $\to$ cost literal mới.
+  
+  \item \textbf{Encode bound:} \texttt{gte.encode\_ub(0..=k, \&mut cnf, \&mut vars);}
+  
+  Lazy: chỉ sinh clauses cho range $[0, k]$. Nếu gọi lại với $k' > k$, chỉ sinh thêm phần mới.
+  
+  \item \textbf{Lấy assumptions:} \texttt{let assumps = gte.enforce\_ub(k);}
+  
+  Trả về \texttt{Vec<Lit>} --- truyền trực tiếp vào \texttt{solver.solve\_with\_assumptions(assumps)}.
+  
+  \item \textbf{Thay đổi bound:} Gọi \texttt{encode\_ub} + \texttt{enforce\_ub} với $k'$ mới. \textbf{Không cần reset solver.}
+\end{enumerate}
+
+\paragraph{Tích hợp với DDD.}
+
+\begin{algorithm}[H]
+\caption{DDD + SAT + GTE (thay thế RC2)}
+\begin{algorithmic}[1]
+\State solver $\gets$ SAT solver mới
+\State gte $\gets$ GeneralizedTotalizer rỗng
+\Loop \Comment{DDD iteration}
+  \If{SAT ở iteration trước}
+    \State Phát hiện conflicts $\to$ thêm hard clauses
+    \If{không conflict} \Return optimal \EndIf
+  \EndIf
+  \ForAll{time point mới $(i,r,c)$ với cost $c > 0$}
+    \State \textcolor{blue}{gte.extend($[(y_c, w_c)]$)} \Comment{thêm cost literal}
+  \EndFor
+  \State \textbf{Binary search trên $k$:}
+  \State gte.encode\_ub($0..{=}k$, cnf, vars) \Comment{lazy, chỉ sinh thêm}
+  \State assumps $\gets$ gte.enforce\_ub($k$)
+  \State result $\gets$ solver.solve(assumps)
+\EndLoop
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Ưu điểm GTE so với SCPB:}
+\begin{itemize}
+  \item \textbf{Lazy encoding}: chỉ sinh clauses khi cần, giảm overhead cho bound nhỏ.
+  \item \textbf{Cấu trúc cây}: propagation tốt hơn chain (SCPB).
+  \item \textbf{Production-ready}: thư viện \texttt{rustsat} đã benchmark, ít clauses hơn PbLib.
+  \item \textbf{Proof logging}: hỗ trợ VeriPB certification.
+  \item Không cần biết $k_{\max}$ trước (lazy).
+\end{itemize}
+
+\paragraph{Lưu ý tương thích.}
+Project hiện tại sử dụng \texttt{satcoder} crate (literal type riêng). \texttt{rustsat} sử dụng \texttt{rustsat::types::Lit}. Cần adapter hoặc chuyển sang \texttt{rustsat} solver interface.
+
+
+% ================================================================
+\section{Tổng kết}
+% ================================================================
+
+Mô hình MaxSAT DDD cho Train Rescheduling có cấu trúc rõ ràng:
+
+\begin{itemize}
+  \item \textbf{Hard constraints} đảm bảo tính khả thi vật lý: H1 (delay chain), H2 (travel time), H3 (resource conflict), H4--H5 (cost implication/ordering), H6 (encoding internal).
+
+  \item \textbf{Soft constraints} mã hóa mục tiêu: S1 (cost minimization), S2 (Totalizer bound từ RC2).
+
+  \item \textbf{RC2} tìm UNSAT cores, nới lỏng bằng Totalizer, tăng LB dần.
+\end{itemize}
+
+Hàm mục tiêu là \textbf{PB constraint} ($\sum w_i X_i \leq k$, $w_i \geq 1$) do CostTree tạo soft clauses với weight $= \Delta c > 1$ ở chế độ tree.
+
+Các hướng cải tiến:
+\begin{enumerate}
+  \item \textbf{Hai tầng incremental} (Mục~\ref{sec:sat-strategies}): 4 cấu hình SAT $\times$ MaxSAT.
+  \item \textbf{Binary MaxSAT} (Mục~\ref{sec:binary-maxsat}): giảm soft clauses $O(C) \to O(\log C)$.
+  \item \textbf{SAT + PB encoding} (Mục~\ref{sec:sat-scpb}): thay MaxSAT bằng SAT + PB encoding (SCPB hoặc GTE), binary search $O(\log \text{OPT})$, điều khiển bound qua assumptions.
+  \begin{itemize}
+    \item \textbf{SCPB}: sequential counter, $O(nk)$ biến, tự implement.
+    \item \textbf{GTE} (Mục~\ref{sec:gte}): generalized totalizer, lazy encoding, production-ready (\texttt{rustsat}).
+  \end{itemize}
+\end{enumerate}
+
+\begin{thebibliography}{9}
+
+\bibitem{joshi2015gte}
+S.~Joshi, R.~Martins, V.~Manquinho.
+\newblock Generalized Totalizer Encoding for Pseudo-Boolean Constraints.
+\newblock \emph{Proceedings of CP 2015}, pp.~200--209, 2015.
+
+\bibitem{bailleux2009scpb}
+O.~Bailleux, Y.~Boufkhad, O.~Roussel.
+\newblock New Encodings of Pseudo-Boolean Constraints into CNF.
+\newblock \emph{Proceedings of SAT 2009}, pp.~181--194, 2009.
+
+\bibitem{jabs2024rustsat}
+C.~Jabs, A.~Berg, M.~Järvisalo, J.~Ihalainen.
+\newblock {RustSAT}: A Modular Library for SAT Solving and Constraint Encoding.
+\newblock \emph{Proceedings of SAT 2024}, 2024.
+
+\bibitem{luteberget2023maxsatddd}
+B.~Luteberget, G.~Kaasen.
+\newblock A MaxSAT Approach for Solving a New Dynamic Discretization Discovery Model for Train Rescheduling Problems.
+\newblock 2023.
+
+\end{thebibliography}
+
+\end{document}
