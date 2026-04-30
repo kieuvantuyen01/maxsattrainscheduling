@@ -1015,66 +1015,31 @@ pub fn solve_debug_with_settings<L: satcoder::Lit + Copy + std::fmt::Debug + 'st
                                 &mut fixed_prec_rows,
                                 &mut active_lit_cache,
                                 settings.use_scl_fixed_precedence,
-<<<<<<< HEAD
                                 m.visit_id,
                                 tau_plus_1,
                             );
                             active_lits.push(lit);
                         }
 
-                        add_hybrid_amo(&mut solver, &active_lits);
-=======
-                            );
-                        }
-
-                        // Build lits and split by train in a single pass for BIS encoding.
-                        // The clique is bipartite when exactly 2 trains are involved:
-                        //   side A = intervals of train_a, side B = intervals of train_b.
-                        // For 3+ trains we collect all lits and fall back to hybrid AMO.
+                        // BIS(K_{a,b}) for 2-train cliques; hybrid AMO for 3+.
                         let mut seen_trains: Vec<usize> = Vec::new();
                         for m in &members {
                             if !seen_trains.contains(&m.train_idx) {
                                 seen_trains.push(m.train_idx);
                             }
                         }
-
                         if seen_trains.len() == 2 {
                             let train_a = seen_trains[0];
-                            let mut side_a: Vec<Bool<L>> = Vec::new();
-                            let mut side_b: Vec<Bool<L>> = Vec::new();
-
-                            for m in &members {
-                                let lit = current_interval_choice_lit(
-                                    &mut solver,
-                                    &occupations,
-                                    &mut current_choice_lits,
-                                    m.visit_id,
-                                );
-                                if m.train_idx == train_a {
-                                    side_a.push(lit);
-                                } else {
-                                    side_b.push(lit);
-                                }
-                            }
-                            // BIS(K_{a,b}): |side_a|+|side_b| clauses instead of O(k log k).
+                            let (side_a, side_b): (Vec<_>, Vec<_>) = members
+                                .iter()
+                                .zip(active_lits.iter())
+                                .partition(|(m, _)| m.train_idx == train_a);
+                            let side_a: Vec<Bool<L>> = side_a.into_iter().map(|(_, &l)| l).collect();
+                            let side_b: Vec<Bool<L>> = side_b.into_iter().map(|(_, &l)| l).collect();
                             add_bipartite_amo(&mut solver, &side_a, &side_b);
                         } else {
-                            // 3+ trains sharing resource: collect all lits, use hybrid AMO.
-                            // (Correct but uses more clauses; rare in practice.)
-                            let mut all_lits: Vec<Bool<L>> = Vec::with_capacity(members.len());
-                            for m in &members {
-                                let lit = current_interval_choice_lit(
-                                    &mut solver,
-                                    &occupations,
-                                    &mut current_choice_lits,
-                                    m.visit_id,
-                                );
-                                all_lits.push(lit);
-                            }
-                            add_hybrid_amo(&mut solver, &all_lits);
+                            add_hybrid_amo(&mut solver, &active_lits);
                         }
-                        n_conflict_constraints += 1;
->>>>>>> 4d74b905 (update bis encoding)
                     }
                     n_conflict_constraints += 1;
                     cliques_processed += 1;
@@ -2055,7 +2020,6 @@ fn add_hybrid_amo<L: satcoder::Lit>(solver: &mut impl SatInstance<L>, lits: &[Bo
     }
 }
 
-<<<<<<< HEAD
 /// Monotone delay literal `visit_id.start ≥ t`.
 /// Returns `true.into()` if t ≤ earliest (always satisfied),
 /// `false.into()` if t ≥ infinity sentinel (never satisfied),
